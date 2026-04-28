@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Study Compiler v0.9</title>
+  <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">Study Compiler v0.9</p>
+      <h1>오늘의 공부를 빌드하세요</h1>
+      <p class="subtitle">시험범위 → 버전 태스크 → 오늘의 빌드. 수행평가도 p0~p4로 관리합니다.</p>
+    </div>
+    <div class="header-actions">
+      <button id="exportBtn" class="ghost">백업 내보내기</button>
+      <label class="ghost file-label">백업 가져오기<input id="importFile" type="file" accept="application/json" hidden /></label>
+    </div>
+  </header>
+
+  <main class="shell">
+    <aside class="sidebar">
+      <section class="card compact">
+        <div class="section-title-row">
+          <h2>과목</h2>
+          <button id="newSubjectBtn" class="mini">+ 추가</button>
+        </div>
+        <div id="subjectList" class="subject-list"></div>
+      </section>
+
+      <section class="card compact">
+        <h2>오늘 요약</h2>
+        <div id="quickStats" class="quick-stats"></div>
+      </section>
+    </aside>
+
+    <section class="workspace">
+      <nav class="tabs" aria-label="Study Compiler 탭">
+        <button class="tab active" data-tab="dashboard">오늘의 빌드</button>
+        <button class="tab" data-tab="subject">과목/범위</button>
+        <button class="tab" data-tab="ai">AI 설계</button>
+        <button class="tab" data-tab="performance">수행평가</button>
+        <button class="tab" data-tab="data">데이터</button>
+      </nav>
+
+      <section id="dashboardTab" class="tab-panel active">
+        <div class="grid two">
+          <section class="card">
+            <div class="section-title-row">
+              <div>
+                <p class="eyebrow">Daily Build</p>
+                <h2>오늘의 빌드</h2>
+              </div>
+              <input id="buildDate" type="date" />
+            </div>
+            <div id="todayBuild" class="task-list"></div>
+          </section>
+          <section class="card">
+            <p class="eyebrow">Version Board</p>
+            <h2>개념 버전 현황</h2>
+            <div id="versionBoard" class="version-board"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="subjectTab" class="tab-panel">
+        <div class="grid two">
+          <section class="card">
+            <p class="eyebrow">Subject Setup</p>
+            <h2>과목 설정</h2>
+            <form id="subjectForm" class="form-stack">
+              <input type="hidden" id="subjectId" />
+              <label>과목명<input id="subjectName" type="text" placeholder="예: 수학" required /></label>
+              <label>시험일<input id="examDate" type="date" required /></label>
+              <label>과목 유형
+                <select id="subjectType">
+                  <option value="problem">문제풀이형</option>
+                  <option value="memory">암기형</option>
+                  <option value="code">정보/코드형</option>
+                  <option value="mixed">혼합형</option>
+                </select>
+              </label>
+              <label>하루 가능 시간(분)<input id="dailyMinutes" type="number" min="10" step="10" value="120" /></label>
+              <button type="submit">과목 저장</button>
+            </form>
+          </section>
+
+          <section class="card">
+            <p class="eyebrow">Versions</p>
+            <h2>교재 버전 입력</h2>
+            <p class="hint">한 줄에 하나씩 입력하세요. 예: <code>v0: 개념서</code></p>
+            <textarea id="versionsInput" rows="9"></textarea>
+            <button id="saveVersionsBtn">버전 저장</button>
+          </section>
+        </div>
+
+        <section class="card">
+          <p class="eyebrow">Curriculum Tree</p>
+          <h2>시험범위 트리 입력</h2>
+          <p class="hint"><code>ㄴ</code> 개수 또는 들여쓰기로 계층을 표현할 수 있습니다.</p>
+          <textarea id="curriculumInput" rows="12" placeholder="지수와 로그\nㄴ 지수\nㄴㄴ 거듭제곱근\nㄴㄴ 지수의 성질"></textarea>
+          <div class="button-row">
+            <button id="parseCurriculumBtn">트리 저장</button>
+            <button id="generateTasksBtn" class="accent">태스크 생성/재생성</button>
+          </div>
+          <div id="curriculumPreview" class="tree-preview"></div>
+        </section>
+      </section>
+
+      <section id="aiTab" class="tab-panel">
+        <div class="grid two">
+          <section class="card">
+            <p class="eyebrow">Prompt Helper</p>
+            <h2>AI 설계 프롬프트 생성</h2>
+            <p class="hint">현재 선택한 과목의 범위와 버전을 바탕으로 JSON 설계안을 요청하는 프롬프트를 만듭니다.</p>
+            <button id="buildPromptBtn">프롬프트 만들기</button>
+            <textarea id="aiPromptOutput" rows="18" readonly></textarea>
+            <button id="copyPromptBtn" class="ghost">프롬프트 복사</button>
+          </section>
+
+          <section class="card">
+            <p class="eyebrow">JSON Import</p>
+            <h2>AI JSON 붙여넣기 및 검토</h2>
+            <p class="hint">AI가 만든 JSON을 붙여넣으면 과목/트리/버전으로 변환합니다. 적용 전 검토 결과가 표시됩니다.</p>
+            <textarea id="aiJsonInput" rows="18" placeholder='{"subject":"수학", "curriculumTree": [...]}'></textarea>
+            <div class="button-row">
+              <button id="validateJsonBtn">검토</button>
+              <button id="applyJsonBtn" class="accent">적용</button>
+            </div>
+            <div id="jsonReview" class="review-box"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="performanceTab" class="tab-panel">
+        <div class="grid two">
+          <section class="card">
+            <p class="eyebrow">Performance Assessment</p>
+            <h2>수행평가 입력</h2>
+            <form id="performanceForm" class="form-stack">
+              <label>과목<select id="performanceSubject"></select></label>
+              <label>수행평가명<input id="performanceTitle" type="text" placeholder="예: 법 보고서" required /></label>
+              <label>마감일<input id="performanceDue" type="date" required /></label>
+              <label>메모<textarea id="performanceMemo" rows="4" placeholder="조건, 제출 형식, 선생님 강조사항 등"></textarea></label>
+              <button type="submit">수행평가 추가</button>
+            </form>
+          </section>
+          <section class="card">
+            <p class="eyebrow">p0~p4</p>
+            <h2>수행평가 단계</h2>
+            <div id="performanceList" class="performance-list"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="dataTab" class="tab-panel">
+        <section class="card">
+          <p class="eyebrow">Data Tools</p>
+          <h2>데이터 관리</h2>
+          <p>모든 데이터는 브라우저의 localStorage에 저장됩니다.</p>
+          <div class="button-row">
+            <button id="seedDemoBtn">샘플 데이터 넣기</button>
+            <button id="resetBtn" class="danger">전체 초기화</button>
+          </div>
+          <pre id="debugState" class="debug"></pre>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <template id="emptyStateTemplate">
+    <div class="empty-state">아직 데이터가 없습니다. 과목/범위를 입력해 주세요.</div>
+  </template>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
