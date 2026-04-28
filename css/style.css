@@ -339,3 +339,37 @@ code { font-family: var(--mono); background: #efe4d7; border-radius: 8px; paddin
 @media (max-width: 960px) {
   .week-grid { grid-template-columns: repeat(7, minmax(180px, 1fr)); }
 }
+
+/* v2.5 learning records */
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+.metric-grid label {
+  font-size: 11px;
+  gap: 4px;
+}
+.metric-grid input,
+.metric-grid select {
+  padding: 8px 9px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+.week-task.patch {
+  background: #f8e6dc;
+  border-color: #efc7b4;
+}
+.week-task.review {
+  background: #e7f0e1;
+  border-color: #c9ddbd;
+}
+.task-item:has(.badge.patch) {
+  border-color: #efc7b4;
+}
+@media (max-width: 720px) {
+  .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
