@@ -43,6 +43,7 @@
         <button class="tab" data-tab="performance">수행평가</button>
         <button class="tab" data-tab="calendar">캘린더</button>
         <button class="tab" data-tab="data">데이터</button>
+        <button class="tab" data-tab="sync">동기화</button>
       </nav>
 
       <section id="dashboardTab" class="tab-panel active">
@@ -190,6 +191,15 @@
           <pre id="debugState" class="debug"></pre>
         </section>
       </section>
+
+      <section id="syncTab" class="tab-panel">
+        <section class="card">
+          <p class="eyebrow">Cloud Sync</p>
+          <h2>Supabase 동기화</h2>
+          <div id="syncView"></div>
+        </section>
+      </section>
+      
     </section>
   </main>
 
