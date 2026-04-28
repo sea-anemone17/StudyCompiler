@@ -60,4 +60,4 @@ function fillActiveSubjectForm(subject) {
 
 bindEvents({ getState, setState, render });
 render();
-toast("Study Compiler v1.5 준비 완료");
+toast("Study Compiler v2.5 준비 완료");

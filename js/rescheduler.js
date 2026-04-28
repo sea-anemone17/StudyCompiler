@@ -1,5 +1,13 @@
-// v1.5에서는 자동 재편성 엔진을 v3 확장 슬롯으로 둡니다.
-// v3 이후: 미완료 이월, 초과 완료 당김, 중요도 낮은 심화 축소를 처리할 예정입니다.
+// v2.5에서는 자동 재편성 전체 기능은 v3 확장 슬롯으로 유지합니다.
+// 다만 패치 태스크가 같은 날짜 안에서 먼저 보이도록 우선순위 정렬만 제공합니다.
+export function sortTasksForDisplay(tasks = []) {
+  return [...tasks].sort((a, b) => {
+    const priorityA = Number.isFinite(Number(a.priority)) ? Number(a.priority) : 99;
+    const priorityB = Number.isFinite(Number(b.priority)) ? Number(b.priority) : 99;
+    return priorityA - priorityB || String(a.versionId || "").localeCompare(String(b.versionId || ""));
+  });
+}
+
 export function rebuildSchedule(tasks) {
-  return tasks;
+  return sortTasksForDisplay(tasks);
 }

@@ -52,6 +52,12 @@ function migrateState(state) {
     type: "study",
     status: "pending",
     estimatedMinutes: 30,
+    priority: getDefaultPriority(task),
+    actualMinutes: task.actualMinutes ?? null,
+    accuracy: task.accuracy ?? null,
+    understanding: task.understanding ?? null,
+    notes: task.notes || "",
+    completedAt: task.completedAt || null,
     ...task,
     schedulerVersion: task.schedulerVersion || "legacy"
   })) : [];
@@ -67,4 +73,14 @@ function migrateState(state) {
     tasks,
     performanceItems
   };
+}
+
+function getDefaultPriority(task = {}) {
+  if (task.type === "patch") return 0;
+  if (task.type === "review") return 0.5;
+  if (task.versionId === "v0") return 1;
+  if (task.versionId === "v1") return 2;
+  if (task.versionId === "v2") return 3;
+  if (task.versionId === "v3") return 4;
+  return 10;
 }

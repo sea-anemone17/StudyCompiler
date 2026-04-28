@@ -27,7 +27,7 @@ export function scheduleByVersionWindows(tasks, subject) {
   }
   const leftovers = tasks.filter(task => !versions.includes(task.versionId));
   if (leftovers.length) scheduled.push(...distributeWithinWindow(leftovers, dates, subject));
-  return scheduled.map(task => ({ ...task, schedulerVersion: "v1.5", scheduledBy: "d-day-version-window" }));
+  return scheduled.map(task => ({ ...task, schedulerVersion: "v2.5", scheduledBy: "d-day-version-window" }));
 }
 
 export function assignVersionWindows(dates, versions) {

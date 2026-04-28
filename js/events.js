@@ -7,6 +7,8 @@ import { generateStudyTasksForSubject, preserveTaskProgress } from "./taskGenera
 import { buildAIPrompt } from "./aiPromptBuilder.js";
 import { parseAIJson, reviewAIJson, applyAIJsonToSubject } from "./aiImporter.js";
 import { createPerformanceItem, togglePerformanceStage } from "./performanceScheduler.js";
+import { createReviewTasks, createMissingReviewTasksForAll } from "./reviewEngine.js";
+import { createPatchTask, createMissingPatchTasksForAll } from "./patchEngine.js";
 import { exportState, importStateFromFile, clearState } from "./storage.js";
 
 export function bindEvents(context) {
@@ -91,9 +93,11 @@ export function bindEvents(context) {
     const generated = preserveTaskProgress(generateStudyTasksForSubject(subject), oldSubjectTasks);
     removeSubjectTasks(state, subject.id);
     state.tasks.push(...generated);
+    const extras = [...createMissingReviewTasksForAll(state), ...createMissingPatchTasksForAll(state)];
+    state.tasks.push(...extras);
     setState(state);
     render();
-    toast(`${generated.length}개 태스크를 생성했습니다.`);
+    toast(`${generated.length}개 태스크를 생성했습니다.${extras.length ? ` 복습/패치 ${extras.length}개도 추가했습니다.` : ""}`);
   });
 
   $("#buildPromptBtn").addEventListener("click", () => {
@@ -177,6 +181,17 @@ export function bindEvents(context) {
     toast("샘플 데이터를 넣었습니다.");
   });
 
+  $("#generateReviewPatchBtn")?.addEventListener("click", () => {
+    const state = getState();
+    const reviews = createMissingReviewTasksForAll(state);
+    state.tasks.push(...reviews);
+    const patches = createMissingPatchTasksForAll(state);
+    state.tasks.push(...patches);
+    setState(state);
+    render();
+    toast(`복습 ${reviews.length}개, 패치 ${patches.length}개를 생성했습니다.`);
+  });
+
   $("#resetBtn").addEventListener("click", () => {
     if (!confirm("모든 데이터를 초기화할까요?")) return;
     clearState();
@@ -219,6 +234,20 @@ export function bindEvents(context) {
   });
 
   document.addEventListener("change", event => {
+    const metricInput = event.target.closest(".task-metric");
+    if (metricInput) {
+      const state = getState();
+      const task = state.tasks.find(item => item.id === metricInput.dataset.taskId);
+      if (task) {
+        applyMetricValue(task, metricInput.dataset.field, metricInput.value);
+        if (task.status === "done") runFollowUpEnginesForTask(state, task);
+        setState(state);
+        render();
+        toast("학습 기록을 저장했습니다.");
+      }
+      return;
+    }
+
     const taskToggle = event.target.closest(".task-toggle");
     if (taskToggle) {
       const state = getState();
@@ -232,6 +261,7 @@ export function bindEvents(context) {
         if (task) {
           task.status = taskToggle.checked ? "done" : "pending";
           task.completedAt = taskToggle.checked ? new Date().toISOString() : null;
+          if (taskToggle.checked) runFollowUpEnginesForTask(state, task);
         }
       }
       setState(state);
@@ -248,6 +278,22 @@ export function bindEvents(context) {
       render();
     }
   });
+
+  function applyMetricValue(task, field, value) {
+    if (["actualMinutes", "accuracy", "understanding"].includes(field)) {
+      task[field] = value === "" ? null : Number(value);
+    } else {
+      task[field] = value;
+    }
+  }
+
+  function runFollowUpEnginesForTask(state, task) {
+    const subject = state.subjects.find(item => item.id === task.subjectId);
+    const reviews = createReviewTasks(task, subject, state.tasks);
+    const patch = createPatchTask(task, state.tasks.concat(reviews));
+    if (reviews.length) state.tasks.push(...reviews);
+    if (patch) state.tasks.push(patch);
+  }
 
   function fillSubjectForm(subject) {
     if (!subject) return;
@@ -278,18 +324,27 @@ export function bindEvents(context) {
       id: subjectId,
       name: "수학",
       examDate: todayISO(),
-      type: "problem",
+      type: "mixed",
       dailyMinutes: 120,
       versions: parseVersionsText(DEFAULT_VERSIONS_TEXT),
       curriculum: parseCurriculumText("지수와 로그\nㄴ 지수\nㄴㄴ 거듭제곱근\nㄴㄴ 지수의 성질\nㄴ 로그\nㄴㄴ 로그의 뜻\nㄴㄴ 로그의 성질", subjectId)
     };
     const tasks = generateStudyTasksForSubject(subject);
-    return {
-      schemaVersion: 2,
+    if (tasks[0]) {
+      tasks[0].status = "done";
+      tasks[0].completedAt = new Date().toISOString();
+      tasks[0].accuracy = 65;
+      tasks[0].understanding = 3;
+    }
+    const demoState = {
+      schemaVersion: 3,
       activeSubjectId: subjectId,
       subjects: [subject],
       tasks,
       performanceItems: [createPerformanceItem({ subjectId, title: "수학 오답 정리 수행", dueDate: todayISO(), memo: "p0~p4 단계 예시" })]
     };
+    demoState.tasks.push(...createMissingReviewTasksForAll(demoState));
+    demoState.tasks.push(...createMissingPatchTasksForAll(demoState));
+    return demoState;
   }
 }

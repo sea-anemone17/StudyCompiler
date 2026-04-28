@@ -1,6 +1,6 @@
-export const STORAGE_KEY = "study_compiler_v09"; // v0.9 데이터 유지용: 의도적으로 변경하지 않음
-export const CURRENT_SCHEMA_VERSION = 2;
-export const APP_VERSION = "v1.5";
+export const STORAGE_KEY = "study_compiler_v09"; // v0.9/v1.5 데이터 유지용: 의도적으로 변경하지 않음
+export const CURRENT_SCHEMA_VERSION = 3;
+export const APP_VERSION = "v2.5";
 
 export const DEFAULT_VERSIONS_TEXT = `v0: 개념서
 v1: 기본 유형서
@@ -28,4 +28,16 @@ export const SCHEDULER_POLICY = {
   reviewAndPatchRatio: 0.2,
   bufferRatio: 0.1,
   minTaskMinutes: 10
+};
+
+export const REVIEW_RULES = [
+  { id: "R1", label: "1차 복습", offsetDays: 1, estimatedMinutes: 10 },
+  { id: "R2", label: "2차 복습", offsetDays: 3, estimatedMinutes: 10 },
+  { id: "R3", label: "3차 복습", offsetDays: 7, estimatedMinutes: 12 }
+];
+
+export const PATCH_POLICY = {
+  accuracyThreshold: 80,
+  understandingThreshold: 3,
+  defaultEstimatedMinutes: 25
 };

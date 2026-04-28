@@ -3,6 +3,7 @@ import { todayISO } from "./state.js";
 import { formatKoreanDate, getWeekDates } from "./scheduler.js";
 import { getPerformanceDueItemsForDates, getPerformanceProgress, getPerformanceTasksForDate } from "./performanceScheduler.js";
 import { getLeafNodes, getNodePath } from "./curriculumParser.js";
+import { sortTasksForDisplay } from "./rescheduler.js";
 
 export function renderSubjectList(state) {
   if (!state.subjects.length) return emptyState("과목을 추가해 주세요.");
@@ -25,12 +26,16 @@ export function renderQuickStats(state, selectedDate = todayISO()) {
   const pending = todayTasks.length - done;
   const subjects = state.subjects.length;
   const performances = state.performanceItems.filter(item => item.stages?.some(stage => stage.status !== "done")).length;
+  const reviewCount = state.tasks.filter(task => task.type === "review" && task.status !== "done").length;
+  const patchCount = state.tasks.filter(task => task.type === "patch" && task.status !== "done").length;
   return `
     <div class="stat"><span>과목</span><strong>${subjects}</strong></div>
     <div class="stat"><span>오늘 태스크</span><strong>${todayTasks.length}</strong></div>
     <div class="stat"><span>완료</span><strong>${done}</strong></div>
     <div class="stat"><span>남음</span><strong>${pending}</strong></div>
     <div class="stat"><span>이번 주 학습</span><strong>${weekStudyCount}</strong></div>
+    <div class="stat"><span>복습 대기</span><strong>${reviewCount}</strong></div>
+    <div class="stat"><span>패치 대기</span><strong>${patchCount}</strong></div>
     <div class="stat"><span>수행평가</span><strong>${performances}</strong></div>
   `;
 }
@@ -38,7 +43,7 @@ export function renderQuickStats(state, selectedDate = todayISO()) {
 export function renderTodayBuild(state, selectedDate = todayISO()) {
   const tasks = getTasksForDate(state, selectedDate);
   if (!tasks.length) return emptyState("오늘 배정된 태스크가 없습니다. 과목/범위를 입력하고 태스크를 생성하세요.");
-  return tasks.map(renderTaskItem).join("");
+  return sortTasksForDisplay(tasks).map(renderTaskItem).join("");
 }
 
 export function renderWeekBuild(state, selectedDate = todayISO()) {
@@ -47,9 +52,7 @@ export function renderWeekBuild(state, selectedDate = todayISO()) {
   return `
     <div class="week-grid">
       ${dates.map(date => {
-        const dayStudyTasks = state.tasks
-          .filter(task => task.scheduledDate === date)
-          .sort((a, b) => (a.priority || 99) - (b.priority || 99) || String(a.versionId).localeCompare(String(b.versionId)));
+        const dayStudyTasks = sortTasksForDisplay(state.tasks.filter(task => task.scheduledDate === date));
         const dayDueItems = dueItems.filter(item => item.dueDate === date);
         const isToday = date === todayISO();
         return `
@@ -130,6 +133,7 @@ export function renderPerformanceSubjectOptions(subjects) {
 
 function renderTaskItem(task) {
   const badgeClass = task.type === "performance" ? "performance" : task.type === "review" ? "review" : task.type === "patch" ? "patch" : "";
+  const isStudyLike = ["study", "review", "patch"].includes(task.type);
   return `
     <article class="task-item ${task.status === "done" ? "done" : ""}" data-task-id="${task.id}" data-task-type="${task.type}">
       <input type="checkbox" class="task-toggle" data-task-id="${task.id}" data-task-type="${task.type}" ${task.status === "done" ? "checked" : ""} />
@@ -140,19 +144,35 @@ function renderTaskItem(task) {
           <span class="badge ${badgeClass}">${escapeHTML(task.versionId || task.type)}</span>
           <span class="badge">${escapeHTML(task.versionLabel || task.type)}</span>
           <span class="badge">${Number(task.estimatedMinutes || 0)}분</span>
+          ${task.patchReason ? `<span class="badge patch">${escapeHTML(task.patchReason)}</span>` : ""}
           ${task.dueDate ? `<span class="badge performance">마감 ${escapeHTML(task.dueDate)}</span>` : ""}
         </div>
+        ${isStudyLike ? renderMetrics(task) : ""}
       </div>
       <div class="task-actions">
-        ${task.type === "study" ? `<button class="mini delay-task" data-task-id="${task.id}">내일</button>` : ""}
+        ${isStudyLike ? `<button class="mini delay-task" data-task-id="${task.id}">내일</button>` : ""}
       </div>
     </article>
   `;
 }
 
-function renderWeekTask(task) {
+function renderMetrics(task) {
   return `
-    <div class="week-task ${task.status === "done" ? "done" : ""}">
+    <div class="metric-grid">
+      <label>실제 시간<input class="task-metric" data-task-id="${task.id}" data-field="actualMinutes" type="number" min="0" step="5" value="${escapeHTML(task.actualMinutes ?? "")}" placeholder="분" /></label>
+      <label>정답률<input class="task-metric" data-task-id="${task.id}" data-field="accuracy" type="number" min="0" max="100" step="5" value="${escapeHTML(task.accuracy ?? "")}" placeholder="%" /></label>
+      <label>이해도<select class="task-metric" data-task-id="${task.id}" data-field="understanding">
+        ${["", "1", "2", "3", "4", "5"].map(value => `<option value="${value}" ${String(task.understanding ?? "") === value ? "selected" : ""}>${value || "-"}</option>`).join("")}
+      </select></label>
+      <label>메모<input class="task-metric" data-task-id="${task.id}" data-field="notes" type="text" value="${escapeHTML(task.notes || "")}" placeholder="오답 원인/느낌" /></label>
+    </div>
+  `;
+}
+
+function renderWeekTask(task) {
+  const typeClass = task.type === "patch" ? "patch" : task.type === "review" ? "review" : task.type === "performance" ? "performance" : "";
+  return `
+    <div class="week-task ${task.status === "done" ? "done" : ""} ${typeClass}">
       <span class="week-version">${escapeHTML(task.versionId)}</span>
       <span>${escapeHTML(task.conceptTitle || task.title)}</span>
     </div>
