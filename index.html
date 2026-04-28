@@ -3,15 +3,15 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Study Compiler v2.5</title>
+  <title>Study Compiler v3.5</title>
   <link rel="stylesheet" href="./css/style.css" />
 </head>
 <body>
   <header class="app-header">
     <div>
-      <p class="eyebrow">Study Compiler v2.5</p>
+      <p class="eyebrow">Study Compiler v3.5</p>
       <h1>오늘의 공부를 빌드하세요</h1>
-      <p class="subtitle">시험범위 → 버전 태스크 → D-day 자동 분배 → 복습/오답 패치 → 오늘/이번 주 빌드. 수행평가도 p0~p4로 관리합니다.</p>
+      <p class="subtitle">시험범위 → 버전 태스크 → D-day 자동 분배 → 복습/오답 패치 → 자동 재편성 → 캘린더. 수행평가도 p0~p4로 관리합니다.</p>
     </div>
     <div class="header-actions">
       <button id="exportBtn" class="ghost">백업 내보내기</button>
@@ -41,6 +41,7 @@
         <button class="tab" data-tab="subject">과목/범위</button>
         <button class="tab" data-tab="ai">AI 설계</button>
         <button class="tab" data-tab="performance">수행평가</button>
+        <button class="tab" data-tab="calendar">캘린더</button>
         <button class="tab" data-tab="data">데이터</button>
       </nav>
 
@@ -159,6 +160,19 @@
         </div>
       </section>
 
+      <section id="calendarTab" class="tab-panel">
+        <section class="card">
+          <div class="section-title-row">
+            <div>
+              <p class="eyebrow">Calendar</p>
+              <h2>한눈에 보는 월간 캘린더</h2>
+            </div>
+            <input id="calendarMonth" type="month" />
+          </div>
+          <div id="calendarView" class="calendar-view"></div>
+        </section>
+      </section>
+
       <section id="dataTab" class="tab-panel">
         <section class="card">
           <p class="eyebrow">Data Tools</p>
@@ -167,8 +181,12 @@
           <div class="button-row">
             <button id="seedDemoBtn">샘플 데이터 넣기</button>
             <button id="generateReviewPatchBtn" class="accent">복습/패치 일괄 생성</button>
+            <button id="previewRebuildBtn">재빌드 미리보기</button>
+            <button id="applyRebuildBtn" class="accent">재빌드 적용</button>
             <button id="resetBtn" class="danger">전체 초기화</button>
           </div>
+          <div id="capacityWarnings" class="review-box"></div>
+          <div id="rebuildPreview" class="review-box"></div>
           <pre id="debugState" class="debug"></pre>
         </section>
       </section>
