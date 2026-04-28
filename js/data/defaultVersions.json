@@ -1,1 +1,6 @@
-
+[
+  { "id": "v0", "label": "개념서", "stage": "concept", "estimatedMinutes": 35 },
+  { "id": "v1", "label": "기본 유형서", "stage": "basic", "estimatedMinutes": 40 },
+  { "id": "v2", "label": "중난도 유형서", "stage": "intermediate", "estimatedMinutes": 50 },
+  { "id": "v3", "label": "심화서", "stage": "advanced", "estimatedMinutes": 60 }
+]
