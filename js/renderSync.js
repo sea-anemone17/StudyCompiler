@@ -31,7 +31,11 @@ function formatDateTime(value) {
   return new Date(value).toLocaleString("ko-KR");
 }
 
-export async function renderSync(container) {
+export function renderSync(container) {
+  renderSyncInner(container);
+}
+
+async function renderSyncInner(container) {
   const config = getSupabaseConfig();
   const user = await getCurrentUser().catch(() => null);
   const lastSync = getLastSyncTime();
