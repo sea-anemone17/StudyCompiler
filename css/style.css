@@ -431,3 +431,37 @@ code { font-family: var(--mono); background: #efe4d7; border-radius: 8px; paddin
   .calendar-grid { grid-template-columns: 1fr; }
   .calendar-day { min-height: auto; }
 }
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+button.secondary {
+  background: #eef0f4;
+  color: #333;
+}
+
+button.danger {
+  background: #c94a4a;
+  color: white;
+}
+
+.form-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.form-grid label {
+  display: grid;
+  gap: 6px;
+}
+
+.form-grid input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 12px;
+}
