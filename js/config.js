@@ -1,6 +1,6 @@
 export const STORAGE_KEY = "study_compiler_v09"; // v0.9/v1.5 데이터 유지용: 의도적으로 변경하지 않음
-export const CURRENT_SCHEMA_VERSION = 3;
-export const APP_VERSION = "v2.5";
+export const CURRENT_SCHEMA_VERSION = 4;
+export const APP_VERSION = "v3.5";
 
 export const DEFAULT_VERSIONS_TEXT = `v0: 개념서
 v1: 기본 유형서

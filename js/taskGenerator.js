@@ -17,6 +17,8 @@ export function generateStudyTasksForSubject(subject) {
         conceptId: leaf.id,
         conceptTitle: leaf.title,
         conceptPath: path,
+        importance: leaf.importance || "B",
+        conceptImportance: leaf.importance || "B",
         versionId: version.id,
         versionLabel: version.label,
         type: "study",
@@ -42,9 +44,11 @@ export function preserveTaskProgress(newTasks, oldTasks) {
       id: old.id,
       status: old.status,
       completedAt: old.completedAt || null,
-      actualMinutes: old.actualMinutes || null,
-      accuracy: old.accuracy || null,
-      notes: old.notes || ""
+      actualMinutes: old.actualMinutes ?? null,
+      accuracy: old.accuracy ?? null,
+      understanding: old.understanding ?? null,
+      notes: old.notes || "",
+      scheduledDate: old.status === "done" ? old.scheduledDate : task.scheduledDate
     };
   });
 }

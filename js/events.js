@@ -10,9 +10,10 @@ import { createPerformanceItem, togglePerformanceStage } from "./performanceSche
 import { createReviewTasks, createMissingReviewTasksForAll } from "./reviewEngine.js";
 import { createPatchTask, createMissingPatchTasksForAll } from "./patchEngine.js";
 import { exportState, importStateFromFile, clearState } from "./storage.js";
+import { createRebuildPreview, applyRebuildPlan } from "./rescheduler.js";
 
 export function bindEvents(context) {
-  const { getState, setState, render } = context;
+  const { getState, setState, render, getLatestRebuildPreview, setLatestRebuildPreview } = context;
 
   $all(".tab").forEach(tab => {
     tab.addEventListener("click", () => {
@@ -158,6 +159,7 @@ export function bindEvents(context) {
   });
 
   $("#buildDate").addEventListener("change", render);
+  $("#calendarMonth")?.addEventListener("change", render);
 
   $("#exportBtn").addEventListener("click", () => exportState(getState()));
   $("#importFile").addEventListener("change", async event => {
@@ -190,6 +192,24 @@ export function bindEvents(context) {
     setState(state);
     render();
     toast(`복습 ${reviews.length}개, 패치 ${patches.length}개를 생성했습니다.`);
+  });
+
+
+  $("#previewRebuildBtn")?.addEventListener("click", () => {
+    const plan = createRebuildPreview(getState(), todayISO());
+    setLatestRebuildPreview?.(plan);
+    render();
+    toast(`재빌드 미리보기: 변경 ${plan.actions.length}건`);
+  });
+
+  $("#applyRebuildBtn")?.addEventListener("click", () => {
+    let plan = getLatestRebuildPreview?.();
+    if (!plan) plan = createRebuildPreview(getState(), todayISO());
+    const state = applyRebuildPlan(getState(), plan);
+    setState(state);
+    setLatestRebuildPreview?.(null);
+    render();
+    toast("재빌드를 적용했습니다.");
   });
 
   $("#resetBtn").addEventListener("click", () => {
@@ -337,7 +357,7 @@ export function bindEvents(context) {
       tasks[0].understanding = 3;
     }
     const demoState = {
-      schemaVersion: 3,
+      schemaVersion: 4,
       activeSubjectId: subjectId,
       subjects: [subject],
       tasks,

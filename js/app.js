@@ -2,14 +2,23 @@ import { loadState, saveState } from "./storage.js";
 import { getActiveSubject, todayISO } from "./state.js";
 import { $, toast } from "./ui.js";
 import { bindEvents } from "./events.js";
-import { renderSubjectList, renderQuickStats, renderTodayBuild, renderWeekBuild, renderVersionBoard, renderPerformanceList, renderPerformanceSubjectOptions } from "./dashboardRenderer.js";
+import { renderSubjectList, renderQuickStats, renderTodayBuild, renderWeekBuild, renderCalendarMonth, renderCapacityWarnings, renderRebuildPreview, renderVersionBoard, renderPerformanceList, renderPerformanceSubjectOptions } from "./dashboardRenderer.js";
 import { renderTreeHTML, curriculumToText } from "./curriculumParser.js";
 import { versionsToText } from "./versionEngine.js";
 
 let state = loadState();
+let latestRebuildPreview = null;
 
 function getState() {
   return state;
+}
+
+function getLatestRebuildPreview() {
+  return latestRebuildPreview;
+}
+
+function setLatestRebuildPreview(plan) {
+  latestRebuildPreview = plan;
 }
 
 function setState(nextState) {
@@ -22,11 +31,15 @@ function render() {
   const activeSubject = getActiveSubject(state);
 
   if ($("#buildDate") && !$("#buildDate").value) $("#buildDate").value = todayISO();
+  if ($("#calendarMonth") && !$("#calendarMonth").value) $("#calendarMonth").value = selectedDate.slice(0, 7);
 
   $("#subjectList").innerHTML = renderSubjectList(state);
   $("#quickStats").innerHTML = renderQuickStats(state, selectedDate);
   $("#todayBuild").innerHTML = renderTodayBuild(state, selectedDate);
   $("#weekBuild").innerHTML = renderWeekBuild(state, selectedDate);
+  if ($("#calendarView")) $("#calendarView").innerHTML = renderCalendarMonth(state, $("#calendarMonth")?.value || selectedDate.slice(0, 7));
+  if ($("#capacityWarnings")) $("#capacityWarnings").innerHTML = renderCapacityWarnings(state);
+  if ($("#rebuildPreview")) $("#rebuildPreview").innerHTML = renderRebuildPreview(latestRebuildPreview);
   $("#versionBoard").innerHTML = renderVersionBoard(activeSubject, state.tasks);
   $("#performanceSubject").innerHTML = renderPerformanceSubjectOptions(state.subjects);
   $("#performanceList").innerHTML = renderPerformanceList(state);
@@ -58,6 +71,6 @@ function fillActiveSubjectForm(subject) {
   $("#curriculumPreview").innerHTML = renderTreeHTML(subject.curriculum || []);
 }
 
-bindEvents({ getState, setState, render });
+bindEvents({ getState, setState, render, getLatestRebuildPreview, setLatestRebuildPreview });
 render();
-toast("Study Compiler v2.5 준비 완료");
+toast("Study Compiler v3.5 준비 완료");
