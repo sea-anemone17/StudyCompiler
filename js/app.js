@@ -5,6 +5,7 @@ import { bindEvents } from "./events.js";
 import { renderSubjectList, renderQuickStats, renderTodayBuild, renderWeekBuild, renderCalendarMonth, renderCapacityWarnings, renderRebuildPreview, renderVersionBoard, renderPerformanceList, renderPerformanceSubjectOptions } from "./dashboardRenderer.js";
 import { renderTreeHTML, curriculumToText } from "./curriculumParser.js";
 import { versionsToText } from "./versionEngine.js";
+import { renderSync } from "./renderSync.js";
 
 let state = loadState();
 let latestRebuildPreview = null;
@@ -32,6 +33,10 @@ function render() {
 
   if ($("#buildDate") && !$("#buildDate").value) $("#buildDate").value = todayISO();
   if ($("#calendarMonth") && !$("#calendarMonth").value) $("#calendarMonth").value = selectedDate.slice(0, 7);
+
+  if ($("#syncView")) {
+    renderSync($("#syncView"));
+  }
 
   $("#subjectList").innerHTML = renderSubjectList(state);
   $("#quickStats").innerHTML = renderQuickStats(state, selectedDate);
