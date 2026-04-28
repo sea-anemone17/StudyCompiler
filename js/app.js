@@ -2,7 +2,7 @@ import { loadState, saveState } from "./storage.js";
 import { getActiveSubject, todayISO } from "./state.js";
 import { $, toast } from "./ui.js";
 import { bindEvents } from "./events.js";
-import { renderSubjectList, renderQuickStats, renderTodayBuild, renderVersionBoard, renderPerformanceList, renderPerformanceSubjectOptions } from "./dashboardRenderer.js";
+import { renderSubjectList, renderQuickStats, renderTodayBuild, renderWeekBuild, renderVersionBoard, renderPerformanceList, renderPerformanceSubjectOptions } from "./dashboardRenderer.js";
 import { renderTreeHTML, curriculumToText } from "./curriculumParser.js";
 import { versionsToText } from "./versionEngine.js";
 
@@ -26,6 +26,7 @@ function render() {
   $("#subjectList").innerHTML = renderSubjectList(state);
   $("#quickStats").innerHTML = renderQuickStats(state, selectedDate);
   $("#todayBuild").innerHTML = renderTodayBuild(state, selectedDate);
+  $("#weekBuild").innerHTML = renderWeekBuild(state, selectedDate);
   $("#versionBoard").innerHTML = renderVersionBoard(activeSubject, state.tasks);
   $("#performanceSubject").innerHTML = renderPerformanceSubjectOptions(state.subjects);
   $("#performanceList").innerHTML = renderPerformanceList(state);
@@ -59,4 +60,4 @@ function fillActiveSubjectForm(subject) {
 
 bindEvents({ getState, setState, render });
 render();
-toast("Study Compiler v0.9 준비 완료");
+toast("Study Compiler v1.5 준비 완료");

@@ -4,11 +4,12 @@ import { scheduleByVersionWindows } from "./scheduler.js";
 
 export function generateStudyTasksForSubject(subject) {
   const leaves = getLeafNodes(subject.curriculum || []);
-  const versions = (subject.versions || []).filter(version => !version.id.includes(".5") && !version.id.startsWith("R"));
+  const versions = (subject.versions || []).filter(version => !String(version.id).includes(".5") && !String(version.id).startsWith("R"));
   const rawTasks = [];
 
   for (const version of versions) {
     for (const leaf of leaves) {
+      if (!shouldGenerateVersionForConcept(leaf, version)) continue;
       const path = getNodePath(subject.curriculum, leaf.id);
       rawTasks.push({
         id: uid("task"),
@@ -22,6 +23,7 @@ export function generateStudyTasksForSubject(subject) {
         title: `${leaf.title} ${version.id} ${version.label}`,
         estimatedMinutes: version.estimatedMinutes || 30,
         status: "pending",
+        priority: getVersionPriority(version.id),
         createdAt: new Date().toISOString()
       });
     }
@@ -41,11 +43,29 @@ export function preserveTaskProgress(newTasks, oldTasks) {
       status: old.status,
       completedAt: old.completedAt || null,
       actualMinutes: old.actualMinutes || null,
-      accuracy: old.accuracy || null
+      accuracy: old.accuracy || null,
+      notes: old.notes || ""
     };
   });
 }
 
 export function taskSignature(task) {
   return [task.subjectId, task.conceptPath?.join(" > ") || task.conceptTitle, task.versionId, task.type].join("|");
+}
+
+function shouldGenerateVersionForConcept(concept, version) {
+  if (Array.isArray(concept.targetVersions) && concept.targetVersions.length) {
+    return concept.targetVersions.includes(version.id);
+  }
+  if (concept.importance === "C") return ["v0", "v1"].includes(version.id) || version.order <= 2;
+  if (concept.importance === "B") return !["v3", "v4"].includes(version.id);
+  return true;
+}
+
+function getVersionPriority(versionId) {
+  if (versionId === "v0") return 1;
+  if (versionId === "v1") return 2;
+  if (versionId === "v2") return 3;
+  if (versionId === "v3") return 4;
+  return 10;
 }

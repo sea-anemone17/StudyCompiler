@@ -1,5 +1,6 @@
-export const STORAGE_KEY = "study_compiler_v09";
-export const CURRENT_SCHEMA_VERSION = 1;
+export const STORAGE_KEY = "study_compiler_v09"; // v0.9 데이터 유지용: 의도적으로 변경하지 않음
+export const CURRENT_SCHEMA_VERSION = 2;
+export const APP_VERSION = "v1.5";
 
 export const DEFAULT_VERSIONS_TEXT = `v0: 개념서
 v1: 기본 유형서
@@ -20,4 +21,11 @@ export const SUBJECT_TYPES = {
   memory: "암기형",
   code: "정보/코드형",
   mixed: "혼합형"
+};
+
+export const SCHEDULER_POLICY = {
+  regularStudyRatio: 0.7,
+  reviewAndPatchRatio: 0.2,
+  bufferRatio: 0.1,
+  minTaskMinutes: 10
 };

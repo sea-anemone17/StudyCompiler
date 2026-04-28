@@ -15,11 +15,11 @@ export function loadState() {
 }
 
 export function saveState(state) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, schemaVersion: CURRENT_SCHEMA_VERSION }));
 }
 
 export function exportState(state) {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify({ ...state, schemaVersion: CURRENT_SCHEMA_VERSION }, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -40,13 +40,31 @@ export function clearState() {
 
 function migrateState(state) {
   const base = createEmptyState();
+  const subjects = Array.isArray(state.subjects) ? state.subjects.map(subject => ({
+    dailyMinutes: 120,
+    type: "problem",
+    curriculum: [],
+    versions: [],
+    ...subject
+  })) : [];
+
+  const tasks = Array.isArray(state.tasks) ? state.tasks.map(task => ({
+    type: "study",
+    status: "pending",
+    estimatedMinutes: 30,
+    ...task,
+    schedulerVersion: task.schedulerVersion || "legacy"
+  })) : [];
+
+  const performanceItems = Array.isArray(state.performanceItems) ? state.performanceItems : [];
+
   return {
     ...base,
     ...state,
     schemaVersion: CURRENT_SCHEMA_VERSION,
-    subjects: Array.isArray(state.subjects) ? state.subjects : [],
-    activeSubjectId: state.activeSubjectId || state.subjects?.[0]?.id || null,
-    tasks: Array.isArray(state.tasks) ? state.tasks : [],
-    performanceItems: Array.isArray(state.performanceItems) ? state.performanceItems : []
+    subjects,
+    activeSubjectId: state.activeSubjectId || subjects[0]?.id || null,
+    tasks,
+    performanceItems
   };
 }

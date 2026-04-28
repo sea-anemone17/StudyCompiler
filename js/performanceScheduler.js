@@ -33,9 +33,18 @@ export function getPerformanceTasksForDate(items, selectedDate = todayISO()) {
         type: "performance",
         status: nextStage.status,
         scheduledDate: selectedDate,
+        dueDate: item.dueDate,
         estimatedMinutes: 30
       };
     });
+}
+
+export function getPerformanceDueItemsForDates(items, dates) {
+  const dateSet = new Set(dates);
+  return items.filter(item => dateSet.has(item.dueDate)).map(item => ({
+    ...item,
+    type: "performance-due"
+  }));
 }
 
 export function togglePerformanceStage(item, stageId, done) {
@@ -43,4 +52,11 @@ export function togglePerformanceStage(item, stageId, done) {
     ? { ...stage, status: done ? "done" : "pending", completedAt: done ? new Date().toISOString() : null }
     : stage
   );
+}
+
+export function getPerformanceProgress(item) {
+  const stages = item.stages || [];
+  if (!stages.length) return { done: 0, total: 0, percent: 0 };
+  const done = stages.filter(stage => stage.status === "done").length;
+  return { done, total: stages.length, percent: Math.round((done / stages.length) * 100) };
 }

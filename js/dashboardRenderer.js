@@ -1,6 +1,7 @@
 import { escapeHTML, emptyState, ddayLabel, subjectTypeLabel } from "./ui.js";
 import { todayISO } from "./state.js";
-import { getPerformanceTasksForDate } from "./performanceScheduler.js";
+import { formatKoreanDate, getWeekDates } from "./scheduler.js";
+import { getPerformanceDueItemsForDates, getPerformanceProgress, getPerformanceTasksForDate } from "./performanceScheduler.js";
 import { getLeafNodes, getNodePath } from "./curriculumParser.js";
 
 export function renderSubjectList(state) {
@@ -18,6 +19,8 @@ export function renderSubjectList(state) {
 
 export function renderQuickStats(state, selectedDate = todayISO()) {
   const todayTasks = getTasksForDate(state, selectedDate);
+  const weekDates = getWeekDates(selectedDate);
+  const weekStudyCount = state.tasks.filter(task => weekDates.includes(task.scheduledDate)).length;
   const done = todayTasks.filter(task => task.status === "done").length;
   const pending = todayTasks.length - done;
   const subjects = state.subjects.length;
@@ -27,6 +30,7 @@ export function renderQuickStats(state, selectedDate = todayISO()) {
     <div class="stat"><span>오늘 태스크</span><strong>${todayTasks.length}</strong></div>
     <div class="stat"><span>완료</span><strong>${done}</strong></div>
     <div class="stat"><span>남음</span><strong>${pending}</strong></div>
+    <div class="stat"><span>이번 주 학습</span><strong>${weekStudyCount}</strong></div>
     <div class="stat"><span>수행평가</span><strong>${performances}</strong></div>
   `;
 }
@@ -37,11 +41,37 @@ export function renderTodayBuild(state, selectedDate = todayISO()) {
   return tasks.map(renderTaskItem).join("");
 }
 
+export function renderWeekBuild(state, selectedDate = todayISO()) {
+  const dates = getWeekDates(selectedDate);
+  const dueItems = getPerformanceDueItemsForDates(state.performanceItems, dates);
+  return `
+    <div class="week-grid">
+      ${dates.map(date => {
+        const dayStudyTasks = state.tasks
+          .filter(task => task.scheduledDate === date)
+          .sort((a, b) => (a.priority || 99) - (b.priority || 99) || String(a.versionId).localeCompare(String(b.versionId)));
+        const dayDueItems = dueItems.filter(item => item.dueDate === date);
+        const isToday = date === todayISO();
+        return `
+          <section class="week-day ${isToday ? "today" : ""}">
+            <div class="week-day-head">
+              <strong>${formatKoreanDate(date)}</strong>
+              <span>${isToday ? "오늘" : ""}</span>
+            </div>
+            ${dayStudyTasks.length ? dayStudyTasks.map(renderWeekTask).join("") : `<p class="week-empty">학습 태스크 없음</p>`}
+            ${dayDueItems.map(renderPerformanceDue).join("")}
+          </section>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
 export function renderVersionBoard(subject, tasks) {
   if (!subject?.curriculum?.length || !subject?.versions?.length) return emptyState("과목 범위와 버전을 입력하면 보드가 표시됩니다.");
   const leaves = getLeafNodes(subject.curriculum);
   if (!leaves.length) return emptyState("가장 아래 개념 노드가 필요합니다.");
-  const versions = subject.versions.filter(version => !version.id.includes(".5") && !version.id.startsWith("R"));
+  const versions = subject.versions.filter(version => !String(version.id).includes(".5") && !String(version.id).startsWith("R"));
   const subjectTasks = tasks.filter(task => task.subjectId === subject.id && task.type === "study");
 
   return `
@@ -55,7 +85,8 @@ export function renderVersionBoard(subject, tasks) {
             ${versions.map(version => {
               const task = subjectTasks.find(item => item.conceptId === leaf.id && item.versionId === version.id);
               const done = task?.status === "done";
-              return `<td><span class="status-dot ${done ? "done" : "pending"}">${done ? "✓" : "·"}</span></td>`;
+              const scheduled = task?.scheduledDate;
+              return `<td title="${escapeHTML(scheduled || "미생성")}"><span class="status-dot ${done ? "done" : task ? "pending" : "missing"}">${done ? "✓" : task ? "·" : "-"}</span></td>`;
             }).join("")}
           </tr>`;
         }).join("")}
@@ -68,15 +99,17 @@ export function renderPerformanceList(state) {
   if (!state.performanceItems.length) return emptyState("수행평가를 추가해 주세요.");
   return state.performanceItems.map(item => {
     const subject = state.subjects.find(s => s.id === item.subjectId);
+    const progress = getPerformanceProgress(item);
     return `
       <article class="performance-card" data-performance-id="${item.id}">
         <div class="performance-head">
           <div>
             <h3>${escapeHTML(item.title)}</h3>
-            <div class="task-path">${escapeHTML(subject?.name || "미지정")} · ${ddayLabel(item.dueDate)} · ${escapeHTML(item.dueDate)}</div>
+            <div class="task-path">${escapeHTML(subject?.name || "미지정")} · ${ddayLabel(item.dueDate)} · ${escapeHTML(item.dueDate)} · ${progress.done}/${progress.total}</div>
           </div>
           <button class="mini danger delete-performance" data-performance-id="${item.id}">삭제</button>
         </div>
+        <div class="progress-bar"><span style="width:${progress.percent}%"></span></div>
         ${item.memo ? `<p class="hint">${escapeHTML(item.memo)}</p>` : ""}
         ${(item.stages || []).map(stage => `
           <label class="stage-row">
@@ -107,12 +140,32 @@ function renderTaskItem(task) {
           <span class="badge ${badgeClass}">${escapeHTML(task.versionId || task.type)}</span>
           <span class="badge">${escapeHTML(task.versionLabel || task.type)}</span>
           <span class="badge">${Number(task.estimatedMinutes || 0)}분</span>
+          ${task.dueDate ? `<span class="badge performance">마감 ${escapeHTML(task.dueDate)}</span>` : ""}
         </div>
       </div>
       <div class="task-actions">
         ${task.type === "study" ? `<button class="mini delay-task" data-task-id="${task.id}">내일</button>` : ""}
       </div>
     </article>
+  `;
+}
+
+function renderWeekTask(task) {
+  return `
+    <div class="week-task ${task.status === "done" ? "done" : ""}">
+      <span class="week-version">${escapeHTML(task.versionId)}</span>
+      <span>${escapeHTML(task.conceptTitle || task.title)}</span>
+    </div>
+  `;
+}
+
+function renderPerformanceDue(item) {
+  const progress = getPerformanceProgress(item);
+  return `
+    <div class="week-task due">
+      <span class="week-version">마감</span>
+      <span>${escapeHTML(item.title)} (${progress.done}/${progress.total})</span>
+    </div>
   `;
 }
 

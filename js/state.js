@@ -30,15 +30,25 @@ export function upsertSubject(state, subject) {
 }
 
 export function removeSubjectTasks(state, subjectId) {
-  state.tasks = state.tasks.filter(task => task.subjectId !== subjectId || task.manual === true);
+  state.tasks = state.tasks.filter(task => task.subjectId !== subjectId || task.manual === true || task.type !== "study");
 }
 
 export function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
+export function addDaysISO(dateISO, amount) {
+  const date = new Date(`${dateISO}T00:00:00`);
+  date.setDate(date.getDate() + amount);
+  return date.toISOString().slice(0, 10);
+}
+
 export function daysBetween(fromISO, toISO) {
   const from = new Date(`${fromISO}T00:00:00`);
   const to = new Date(`${toISO}T00:00:00`);
   return Math.ceil((to - from) / 86400000);
+}
+
+export function isISODate(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
 }
