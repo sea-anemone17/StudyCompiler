@@ -1,1 +1,348 @@
+import { $, $all, toast } from "../ui.js";
+import { uid, getActiveSubject, upsertSubject, todayISO } from "../state.js";
+import { DEFAULT_VERSIONS_TEXT } from "../config.js";
+import { parseCurriculumText, renderTreeHTML, curriculumToText } from "../curriculumParser.js";
+import { parseVersionsText, versionsToText } from "../versionEngine.js";
+import { buildAIPrompt } from "../aiPromptBuilder.js";
+import { parseAIJson, reviewAIJson, applyAIJsonToSubject } from "../aiImporter.js";
+import { createPerformanceItem, togglePerformanceStage } from "../performanceScheduler.js";
+import { exportState, importStateFromFile, clearState } from "../data/storage.js";
+import { createRebuildPreview, applyRebuildPlan, recordTaskCompletionAndReplan } from "../planner/rescheduleEngine.js";
+import { replanSubject, replanAll, scheduleAllPending, attachFollowups } from "../planner/planner.js";
+import { applyOutcomeToTask } from "../core/scoreModel.js";
+import { renderScheduleSettings, readScheduleSettings } from "./renderScheduleSettings.js";
 
+export function bindEvents(context) {
+  const { getState, setState, render, getLatestRebuildPreview, setLatestRebuildPreview } = context;
+
+  $all(".tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      $all(".tab").forEach(item => item.classList.remove("active"));
+      $all(".tab-panel").forEach(item => item.classList.remove("active"));
+      tab.classList.add("active");
+      $(`#${tab.dataset.tab}Tab`)?.classList.add("active");
+    });
+  });
+
+  $("#newSubjectBtn")?.addEventListener("click", () => {
+    const state = getState();
+    const subject = {
+      id: uid("subject"),
+      name: "새 과목",
+      examDate: todayISO(),
+      examDateStatus: "estimated",
+      type: "problem",
+      dailyMinutes: 120,
+      studyFinishBufferDays: 7,
+      curriculum: [],
+      versions: parseVersionsText(DEFAULT_VERSIONS_TEXT)
+    };
+    upsertSubject(state, subject);
+    setState(scheduleAllPending(state));
+    fillSubjectForm(subject);
+    render();
+    toast("새 과목을 만들었습니다.");
+  });
+
+  $("#subjectForm")?.addEventListener("submit", event => {
+    event.preventDefault();
+    const state = getState();
+    const active = getActiveSubject(state);
+    const subject = {
+      ...(active || {}),
+      id: $("#subjectId")?.value || active?.id || uid("subject"),
+      name: $("#subjectName")?.value.trim() || "이름 없는 과목",
+      examDate: $("#examDate")?.value || todayISO(),
+      examDateStatus: $("#examDateStatus")?.value || active?.examDateStatus || "estimated",
+      provisionalExamDate: $("#provisionalExamDate")?.value || active?.provisionalExamDate || "",
+      examWindowStart: $("#examWindowStart")?.value || active?.examWindowStart || "",
+      examWindowEnd: $("#examWindowEnd")?.value || active?.examWindowEnd || "",
+      studyFinishBufferDays: Number($("#studyFinishBufferDays")?.value || active?.studyFinishBufferDays || 7),
+      allowRegularStudyOnExamDay: Boolean($("#allowRegularStudyOnExamDay")?.checked),
+      type: $("#subjectType")?.value || "problem",
+      dailyMinutes: Number($("#dailyMinutes")?.value || 120),
+      curriculum: active?.curriculum || [],
+      versions: active?.versions || parseVersionsText(DEFAULT_VERSIONS_TEXT)
+    };
+    upsertSubject(state, subject);
+    setState(replanSubject(state, subject.id));
+    render();
+    toast("과목을 저장하고 계획을 다시 배치했습니다.");
+  });
+
+  $("#saveVersionsBtn")?.addEventListener("click", () => {
+    const state = getState();
+    const subject = getActiveSubject(state);
+    if (!subject) return toast("과목을 먼저 추가해 주세요.");
+    subject.versions = parseVersionsText($("#versionsInput")?.value || DEFAULT_VERSIONS_TEXT);
+    upsertSubject(state, subject);
+    setState(replanSubject(state, subject.id));
+    render();
+    toast("버전을 저장하고 태스크를 재계획했습니다.");
+  });
+
+  $("#parseCurriculumBtn")?.addEventListener("click", () => {
+    const state = getState();
+    const subject = getActiveSubject(state);
+    if (!subject) return toast("과목을 먼저 추가해 주세요.");
+    subject.curriculum = parseCurriculumText($("#curriculumInput")?.value || "", subject.id);
+    upsertSubject(state, subject);
+    setState(replanSubject(state, subject.id));
+    render();
+    toast("시험범위 트리를 저장하고 태스크를 재계획했습니다.");
+  });
+
+  $("#generateTasksBtn")?.addEventListener("click", () => {
+    const state = getState();
+    const subject = getActiveSubject(state);
+    if (!subject) return toast("과목을 먼저 추가해 주세요.");
+    if (!subject.curriculum?.length) return toast("시험범위 트리를 먼저 저장해 주세요.");
+    if (!subject.versions?.length) subject.versions = parseVersionsText(DEFAULT_VERSIONS_TEXT);
+    setState(replanSubject(state, subject.id));
+    render();
+    toast("태스크를 생성하고 시간 블록 기준으로 재배치했습니다.");
+  });
+
+  $("#buildPromptBtn")?.addEventListener("click", () => {
+    const subject = getActiveSubject(getState());
+    if ($("#aiPromptOutput")) $("#aiPromptOutput").value = buildAIPrompt(subject);
+    toast("AI 프롬프트를 생성했습니다.");
+  });
+
+  $("#copyPromptBtn")?.addEventListener("click", async () => {
+    const value = $("#aiPromptOutput")?.value;
+    if (!value) return toast("복사할 프롬프트가 없습니다.");
+    await navigator.clipboard.writeText(value);
+    toast("프롬프트를 복사했습니다.");
+  });
+
+  $("#validateJsonBtn")?.addEventListener("click", () => {
+    try {
+      const parsed = parseAIJson($("#aiJsonInput")?.value || "");
+      const review = reviewAIJson(parsed);
+      if ($("#jsonReview")) $("#jsonReview").innerHTML = renderJsonReview(review);
+      toast("JSON 검토를 완료했습니다.");
+    } catch (error) {
+      if ($("#jsonReview")) $("#jsonReview").textContent = `오류: ${error.message}`;
+      toast("JSON을 읽지 못했습니다.");
+    }
+  });
+
+  $("#applyJsonBtn")?.addEventListener("click", () => {
+    try {
+      const state = getState();
+      const parsed = parseAIJson($("#aiJsonInput")?.value || "");
+      const subject = applyAIJsonToSubject(parsed, getActiveSubject(state));
+      upsertSubject(state, subject);
+      setState(replanSubject(state, subject.id));
+      fillSubjectForm(subject);
+      render();
+      toast("AI JSON을 적용하고 재계획했습니다.");
+    } catch (error) {
+      toast(`적용 실패: ${error.message}`);
+    }
+  });
+
+  $("#performanceForm")?.addEventListener("submit", event => {
+    event.preventDefault();
+    const state = getState();
+    const subjectId = $("#performanceSubject")?.value || state.subjects[0]?.id;
+    if (!subjectId) return toast("과목을 먼저 추가해 주세요.");
+    state.performanceItems.push(createPerformanceItem({
+      subjectId,
+      title: $("#performanceTitle")?.value.trim(),
+      dueDate: $("#performanceDue")?.value,
+      memo: $("#performanceMemo")?.value.trim()
+    }));
+    event.target.reset();
+    setState(scheduleAllPending(state));
+    render();
+    toast("수행평가를 추가했습니다.");
+  });
+
+  $("#buildDate")?.addEventListener("change", render);
+  $("#calendarMonth")?.addEventListener("change", render);
+  $("#exportBtn")?.addEventListener("click", () => exportState(getState()));
+  $("#importFile")?.addEventListener("change", async event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const imported = await importStateFromFile(file);
+      setState(scheduleAllPending(imported));
+      render();
+      toast("백업을 가져오고 재배치했습니다.");
+    } catch (error) {
+      toast(`가져오기 실패: ${error.message}`);
+    } finally {
+      event.target.value = "";
+    }
+  });
+
+  $("#generateReviewPatchBtn")?.addEventListener("click", () => {
+    const state = getState();
+    const created = attachFollowups(state);
+    setState(scheduleAllPending(state));
+    render();
+    toast(`복습 ${created.reviews.length}개, 패치 ${created.patches.length}개를 생성했습니다.`);
+  });
+
+  $("#previewRebuildBtn")?.addEventListener("click", () => {
+    const plan = createRebuildPreview(getState(), todayISO());
+    setLatestRebuildPreview?.(plan);
+    render();
+    toast(`재빌드 미리보기: 변경 ${plan.actions.length}건`);
+  });
+
+  $("#applyRebuildBtn")?.addEventListener("click", () => {
+    let plan = getLatestRebuildPreview?.();
+    if (!plan) plan = createRebuildPreview(getState(), todayISO());
+    const state = applyRebuildPlan(getState(), plan);
+    setState(state);
+    setLatestRebuildPreview?.(null);
+    render();
+    toast("재빌드를 적용했습니다.");
+  });
+
+  $("#resetBtn")?.addEventListener("click", () => {
+    if (!confirm("모든 데이터를 초기화할까요?")) return;
+    clearState();
+    location.reload();
+  });
+
+  const scheduleContainer = $("#scheduleSettingsView");
+  if (scheduleContainer) {
+    renderScheduleSettings(scheduleContainer, getState());
+    scheduleContainer.addEventListener("click", event => {
+      const add = event.target.closest(".add-schedule-block");
+      if (add) {
+        const dayBlocks = scheduleContainer.querySelector(`.day-blocks[data-weekday="${add.dataset.weekday}"]`);
+        const index = dayBlocks.querySelectorAll(".schedule-block").length;
+        dayBlocks.insertAdjacentHTML("beforeend", `<div class="schedule-block" data-block-index="${index}">
+          <label>시작 <input data-field="start" type="time" value="19:00"></label>
+          <label>끝 <input data-field="end" type="time" value="20:30"></label>
+          <label>가능 과목 ID <input data-field="allowedSubjectIds" type="text"></label>
+          <label>필수 과목 ID <input data-field="requiredSubjectIds" type="text"></label>
+          <button type="button" class="remove-schedule-block">삭제</button>
+        </div>`);
+      }
+      if (event.target.closest(".remove-schedule-block")) {
+        event.target.closest(".schedule-block")?.remove();
+      }
+      if (event.target.id === "saveScheduleSettingsBtn") {
+        const state = getState();
+        state.weeklyAvailability = readScheduleSettings(scheduleContainer);
+        setState(replanAll(state));
+        render();
+        toast("요일별 시간표를 저장하고 전체 재배치했습니다.");
+      }
+    });
+  }
+
+  document.addEventListener("click", event => {
+    const subjectCard = event.target.closest(".subject-card");
+    if (subjectCard) {
+      const state = getState();
+      state.activeSubjectId = subjectCard.dataset.subjectId;
+      setState(state);
+      render();
+      return;
+    }
+    const deletePerformance = event.target.closest(".delete-performance");
+    if (deletePerformance) {
+      const state = getState();
+      state.performanceItems = state.performanceItems.filter(item => item.id !== deletePerformance.dataset.performanceId);
+      setState(scheduleAllPending(state));
+      render();
+      toast("수행평가를 삭제했습니다.");
+      return;
+    }
+    const delayBtn = event.target.closest(".delay-task");
+    if (delayBtn) {
+      const state = getState();
+      const task = state.tasks.find(item => item.id === delayBtn.dataset.taskId);
+      if (task) {
+        task.status = "pending";
+        task.scheduledDate = null;
+        task.manualDelayCount = Number(task.manualDelayCount || 0) + 1;
+        setState(scheduleAllPending(state, { anchorDate: todayISO() }));
+        render();
+        toast("태스크를 다음 가능한 블록으로 재배치했습니다.");
+      }
+    }
+  });
+
+  document.addEventListener("change", event => {
+    const metricInput = event.target.closest(".task-metric");
+    if (metricInput) {
+      const state = getState();
+      const task = state.tasks.find(item => item.id === metricInput.dataset.taskId);
+      if (task) {
+        applyOutcomeToTask(task, metricInput.dataset.field, metricInput.value);
+        const next = task.status === "done" ? recordTaskCompletionAndReplan(state, task) : scheduleAllPending(state);
+        setState(next);
+        render();
+        toast("학습 기록을 저장하고 시간을 보정했습니다.");
+      }
+      return;
+    }
+    const taskToggle = event.target.closest(".task-toggle");
+    if (taskToggle) {
+      const state = getState();
+      const { taskId, taskType } = taskToggle.dataset;
+      if (taskType === "performance") {
+        const [performanceId, stageId] = taskId.split("::");
+        const item = state.performanceItems.find(perf => perf.id === performanceId);
+        if (item) togglePerformanceStage(item, stageId, taskToggle.checked);
+      } else {
+        const task = state.tasks.find(item => item.id === taskId);
+        if (task) {
+          task.status = taskToggle.checked ? "done" : "pending";
+          task.completedAt = taskToggle.checked ? new Date().toISOString() : null;
+          if (taskToggle.checked) attachFollowups(state);
+        }
+      }
+      setState(scheduleAllPending(state));
+      render();
+      return;
+    }
+    const stageToggle = event.target.closest(".performance-stage-toggle");
+    if (stageToggle) {
+      const state = getState();
+      const item = state.performanceItems.find(perf => perf.id === stageToggle.dataset.performanceId);
+      if (item) togglePerformanceStage(item, stageToggle.dataset.stageId, stageToggle.checked);
+      setState(scheduleAllPending(state));
+      render();
+    }
+  });
+}
+
+function fillSubjectForm(subject) {
+  if (!subject) return;
+  if ($("#subjectId")) $("#subjectId").value = subject.id || "";
+  if ($("#subjectName")) $("#subjectName").value = subject.name || "";
+  if ($("#examDate")) $("#examDate").value = subject.examDate || todayISO();
+  if ($("#examDateStatus")) $("#examDateStatus").value = subject.examDateStatus || "estimated";
+  if ($("#provisionalExamDate")) $("#provisionalExamDate").value = subject.provisionalExamDate || "";
+  if ($("#examWindowStart")) $("#examWindowStart").value = subject.examWindowStart || "";
+  if ($("#examWindowEnd")) $("#examWindowEnd").value = subject.examWindowEnd || "";
+  if ($("#studyFinishBufferDays")) $("#studyFinishBufferDays").value = subject.studyFinishBufferDays ?? 7;
+  if ($("#allowRegularStudyOnExamDay")) $("#allowRegularStudyOnExamDay").checked = Boolean(subject.allowRegularStudyOnExamDay);
+  if ($("#subjectType")) $("#subjectType").value = subject.type || "problem";
+  if ($("#dailyMinutes")) $("#dailyMinutes").value = subject.dailyMinutes || 120;
+  if ($("#versionsInput")) $("#versionsInput").value = versionsToText(subject.versions || []);
+  if ($("#curriculumInput")) $("#curriculumInput").value = curriculumToText(subject.curriculum || []);
+  if ($("#curriculumPreview")) $("#curriculumPreview").innerHTML = renderTreeHTML(subject.curriculum || []);
+}
+
+function renderJsonReview(review) {
+  return `
+    <dl>
+      <dt>과목</dt><dd>${review.subject}</dd>
+      <dt>시험일</dt><dd>${review.examDate}</dd>
+      <dt>유형</dt><dd>${review.type}</dd>
+      <dt>개념 수</dt><dd>${review.conceptCount}</dd>
+      <dt>버전 규칙</dt><dd>${review.versionCount}</dd>
+    </dl>
+    ${review.warnings.length ? `<ul>${review.warnings.map(w => `<li>${w}</li>`).join("")}</ul>` : "큰 문제는 없어 보입니다."}
+  `;
+}
