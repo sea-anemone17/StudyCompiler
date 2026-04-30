@@ -1,41 +1,63 @@
 import { SCHEDULER_POLICY } from "./config.js";
-import { addDaysISO, daysBetween, todayISO } from "./state.js";
+import {
+  addDaysISO,
+  daysBetween,
+  formatDateOnly,
+  getStudyFinishDate,
+  getSubjectTargetDate,
+  parseDateOnly,
+  todayISO
+} from "./state.js";
 
 export function buildDateRange(startISO, endISO) {
   const dates = [];
-  const current = new Date(`${startISO}T00:00:00`);
-  const end = new Date(`${endISO || startISO}T00:00:00`);
-  if (Number.isNaN(current.getTime()) || Number.isNaN(end.getTime())) return [startISO];
-  const safeEnd = end < current ? current : end;
-  while (current <= safeEnd) {
-    dates.push(current.toISOString().slice(0, 10));
-    current.setDate(current.getDate() + 1);
+  const start = parseDateOnly(startISO) || parseDateOnly(todayISO());
+  const end = parseDateOnly(endISO || startISO) || start;
+  if (!start || !end) return [startISO || todayISO()];
+
+  const safeEnd = end < start ? start : end;
+  const cursor = new Date(start);
+  while (cursor <= safeEnd) {
+    dates.push(formatDateOnly(cursor));
+    cursor.setDate(cursor.getDate() + 1);
   }
-  return dates.length ? dates : [startISO];
+  return dates.length ? dates : [startISO || todayISO()];
 }
 
 export function scheduleByVersionWindows(tasks, subject) {
   const start = todayISO();
-  const dates = buildDateRange(start, subject.examDate || start);
+  const studyFinishDate = getStudyFinishDate(subject);
+  const dates = buildDateRange(start, studyFinishDate);
   const versions = getRegularVersionIds(subject, tasks);
   const versionWindows = assignVersionWindows(dates, versions);
   const scheduled = [];
+
   for (const versionId of versions) {
     const group = tasks.filter(task => task.versionId === versionId);
     const window = versionWindows.get(versionId) || { dates };
     scheduled.push(...distributeWithinWindow(group, window.dates, subject));
   }
+
   const leftovers = tasks.filter(task => !versions.includes(task.versionId));
   if (leftovers.length) scheduled.push(...distributeWithinWindow(leftovers, dates, subject));
-  return scheduled.map(task => ({ ...task, schedulerVersion: "v2.5", scheduledBy: "d-day-version-window" }));
+
+  return scheduled.map(task => ({
+    ...task,
+    studyFinishDate,
+    targetExamDate: getSubjectTargetDate(subject),
+    schedulerVersion: "v4.0-study-finish-buffer",
+    scheduledBy: "study-finish-before-exam"
+  }));
 }
 
 export function assignVersionWindows(dates, versions) {
   const result = new Map();
   if (!versions.length) return result;
+
   const totalDays = Math.max(1, dates.length);
   const base = Math.max(1, Math.floor(totalDays / versions.length));
   let cursor = 0;
+
   versions.forEach((versionId, index) => {
     const remainingVersions = versions.length - index;
     const remainingDays = totalDays - cursor;
@@ -43,6 +65,7 @@ export function assignVersionWindows(dates, versions) {
       ? Math.max(1, remainingDays)
       : Math.max(1, Math.min(base, remainingDays - remainingVersions + 1));
     const windowDates = dates.slice(cursor, cursor + size);
+
     result.set(versionId, {
       versionId,
       startDate: windowDates[0] || dates[0],
@@ -51,24 +74,26 @@ export function assignVersionWindows(dates, versions) {
     });
     cursor += size;
   });
+
   return result;
 }
 
 export function getWeekDates(anchorISO = todayISO()) {
-  const anchor = new Date(`${anchorISO}T00:00:00`);
-  if (Number.isNaN(anchor.getTime())) return buildDateRange(todayISO(), addDaysISO(todayISO(), 6));
+  const anchor = parseDateOnly(anchorISO);
+  if (!anchor) return buildDateRange(todayISO(), addDaysISO(todayISO(), 6));
+
   const day = anchor.getDay();
   const diffToMonday = day === 0 ? -6 : 1 - day;
   const monday = new Date(anchor);
   monday.setDate(anchor.getDate() + diffToMonday);
-  const mondayISO = monday.toISOString().slice(0, 10);
+  const mondayISO = formatDateOnly(monday);
   return Array.from({ length: 7 }, (_, index) => addDaysISO(mondayISO, index));
 }
 
 export function formatKoreanDate(dateISO) {
-  const date = new Date(`${dateISO}T00:00:00`);
+  const date = parseDateOnly(dateISO);
   const days = ["일", "월", "화", "수", "목", "금", "토"];
-  if (Number.isNaN(date.getTime())) return dateISO;
+  if (!date) return dateISO;
   return `${date.getMonth() + 1}/${date.getDate()}(${days[date.getDay()]})`;
 }
 
@@ -94,9 +119,11 @@ function distributeWithinWindow(tasks, dates, subject) {
   );
   const used = new Map(safeDates.map(date => [date, 0]));
   let dateIndex = 0;
+
   return tasks.map((task, index) => {
     const minutes = Math.max(SCHEDULER_POLICY.minTaskMinutes, Number(task.estimatedMinutes || 30));
     let attempts = 0;
+
     while (attempts < safeDates.length) {
       const date = safeDates[dateIndex % safeDates.length];
       const current = used.get(date) || 0;
@@ -104,9 +131,11 @@ function distributeWithinWindow(tasks, dates, subject) {
       dateIndex += 1;
       attempts += 1;
     }
+
     const date = safeDates[dateIndex % safeDates.length];
     used.set(date, (used.get(date) || 0) + minutes);
     if ((used.get(date) || 0) >= effectiveDailyMinutes) dateIndex += 1;
+
     return {
       ...task,
       scheduledDate: date,

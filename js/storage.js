@@ -1,5 +1,7 @@
 import { STORAGE_KEY, CURRENT_SCHEMA_VERSION } from "./config.js";
-import { createEmptyState } from "./state.js";
+import { createEmptyState, normalizeSubjectPlan, todayISO } from "./state.js";
+
+const SAFETY_BACKUP_KEY = `${STORAGE_KEY}_safety_backup`;
 
 export function loadState() {
   try {
@@ -15,15 +17,25 @@ export function loadState() {
 }
 
 export function saveState(state) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, schemaVersion: CURRENT_SCHEMA_VERSION }));
+  const now = new Date().toISOString();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    ...state,
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    syncMeta: {
+      ...(state.syncMeta || {}),
+      localUpdatedAt: now
+    }
+  }));
 }
 
 export function exportState(state) {
-  const blob = new Blob([JSON.stringify({ ...state, schemaVersion: CURRENT_SCHEMA_VERSION }, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify({ ...state, schemaVersion: CURRENT_SCHEMA_VERSION }, null, 2)], {
+    type: "application/json"
+  });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `study-compiler-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  anchor.download = `study-compiler-backup-${todayISO()}.json`;
   anchor.click();
   URL.revokeObjectURL(url);
 }
@@ -38,29 +50,58 @@ export function clearState() {
   localStorage.removeItem(STORAGE_KEY);
 }
 
+export function createSafetyBackup(state, reason = "manual") {
+  try {
+    const backup = {
+      reason,
+      createdAt: new Date().toISOString(),
+      data: state
+    };
+    localStorage.setItem(SAFETY_BACKUP_KEY, JSON.stringify(backup));
+    return backup;
+  } catch (error) {
+    console.warn("Failed to create safety backup", error);
+    return null;
+  }
+}
+
+export function getSafetyBackup() {
+  try {
+    return JSON.parse(localStorage.getItem(SAFETY_BACKUP_KEY));
+  } catch {
+    return null;
+  }
+}
+
 function migrateState(state) {
   const base = createEmptyState();
-  const subjects = Array.isArray(state.subjects) ? state.subjects.map(subject => ({
-    dailyMinutes: 120,
-    type: "problem",
-    curriculum: [],
-    versions: [],
-    ...subject
-  })) : [];
+  const subjects = Array.isArray(state.subjects)
+    ? state.subjects.map(subject => normalizeSubjectPlan({
+        dailyMinutes: 120,
+        type: "problem",
+        curriculum: [],
+        versions: [],
+        studyFinishBufferDays: 7,
+        examDateStatus: "estimated",
+        ...subject
+      }))
+    : [];
 
-  const tasks = Array.isArray(state.tasks) ? state.tasks.map(task => ({
-    type: "study",
-    status: "pending",
-    estimatedMinutes: 30,
-    priority: getDefaultPriority(task),
-    actualMinutes: task.actualMinutes ?? null,
-    accuracy: task.accuracy ?? null,
-    understanding: task.understanding ?? null,
-    notes: task.notes || "",
-    completedAt: task.completedAt || null,
-    ...task,
-    schedulerVersion: task.schedulerVersion || "legacy"
-  })) : [];
+  const tasks = Array.isArray(state.tasks)
+    ? state.tasks.map(task => ({
+        type: "study",
+        status: "pending",
+        estimatedMinutes: 30,
+        priority: getDefaultPriority(task),
+        actualMinutes: task.actualMinutes ?? null,
+        accuracy: task.accuracy ?? null,
+        understanding: task.understanding ?? null,
+        notes: task.notes || "",
+        completedAt: task.completedAt || null,
+        ...task,
+        schedulerVersion: task.schedulerVersion || "legacy"
+      }))
+    : [];
 
   const performanceItems = Array.isArray(state.performanceItems) ? state.performanceItems : [];
 
@@ -71,7 +112,11 @@ function migrateState(state) {
     subjects,
     activeSubjectId: state.activeSubjectId || subjects[0]?.id || null,
     tasks,
-    performanceItems
+    performanceItems,
+    syncMeta: {
+      ...(base.syncMeta || {}),
+      ...(state.syncMeta || {})
+    }
   };
 }
 

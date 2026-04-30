@@ -1,5 +1,4 @@
-import { SCHEDULER_POLICY } from "./config.js";
-import { addDaysISO, todayISO } from "./state.js";
+import { addDaysISO, getStudyFinishDate, getSubjectTargetDate, todayISO } from "./state.js";
 import { buildDateRange } from "./scheduler.js";
 
 export function sortTasksForDisplay(tasks = []) {
@@ -49,21 +48,23 @@ export function createRebuildPreview(state, anchorDate = todayISO()) {
   for (const subject of state.subjects || []) {
     const subjectTasks = movableTasks.filter(task => task.subjectId === subject.id);
     if (!subjectTasks.length) continue;
-    const dateEnd = subject.examDate && subject.examDate >= today ? subject.examDate : addDaysISO(today, 7);
-    const dates = buildDateRange(today, dateEnd);
-    const capacity = Math.max(20, Number(subject.dailyMinutes || 120));
-    const used = new Map(dates.map(date => [date, 0]));
+
+    const used = new Map();
     const sorted = [...subjectTasks].sort((a, b) => {
       const overdueA = a.scheduledDate && a.scheduledDate < today ? 0 : 1;
       const overdueB = b.scheduledDate && b.scheduledDate < today ? 0 : 1;
-      return overdueA - overdueB || getTaskPriority(a) - getTaskPriority(b) || String(a.title).localeCompare(String(b.title));
+      return overdueA - overdueB
+        || getTaskPriority(a) - getTaskPriority(b)
+        || String(a.title).localeCompare(String(b.title));
     });
 
     for (const task of sorted) {
       const minutes = Math.max(5, Number(task.estimatedMinutes || 30));
       const oldDate = task.scheduledDate;
       const earliest = oldDate && oldDate < today ? today : (oldDate || today);
+      const dates = buildDateRange(today, getSchedulingEndDate(subject, task, today));
       const candidateDates = dates.filter(date => date >= earliest);
+      const capacity = Math.max(20, Number(subject.dailyMinutes || 120));
       let placedDate = null;
 
       for (const date of candidateDates) {
@@ -124,6 +125,7 @@ export function createRebuildPreview(state, anchorDate = todayISO()) {
 export function applyRebuildPlan(state, plan) {
   const updateMap = new Map((plan?.updates || []).map(item => [item.taskId, item]));
   const deferred = new Set(plan?.deferredTaskIds || []);
+
   state.tasks = state.tasks.map(task => {
     if (deferred.has(task.id)) {
       return {
@@ -131,9 +133,10 @@ export function applyRebuildPlan(state, plan) {
         status: "deferred",
         scheduledDate: null,
         deferredAt: new Date().toISOString(),
-        deferredReason: "v3.5 자동 재편성: 낮은 중요도·용량 부족"
+        deferredReason: "v4.0 자동 재편성: 낮은 중요도·용량 부족"
       };
     }
+
     const update = updateMap.get(task.id);
     if (!update) return task;
     return {
@@ -141,9 +144,10 @@ export function applyRebuildPlan(state, plan) {
       scheduledDate: update.scheduledDate,
       status: update.status || task.status || "pending",
       rescheduledAt: new Date().toISOString(),
-      schedulerVersion: "v3.5"
+      schedulerVersion: "v4.0-rebuild"
     };
   });
+
   return state;
 }
 
@@ -155,7 +159,9 @@ export function getCapacityWarnings(state) {
   const totalDateCapacity = new Map();
 
   for (const subject of state.subjects || []) {
-    const dates = buildDateRange(todayISO(), subject.examDate && subject.examDate >= todayISO() ? subject.examDate : addDaysISO(todayISO(), 14));
+    const targetDate = getSubjectTargetDate(subject);
+    const endDate = targetDate && targetDate >= todayISO() ? targetDate : addDaysISO(todayISO(), 14);
+    const dates = buildDateRange(todayISO(), endDate);
     for (const date of dates) {
       totalDateCapacity.set(date, (totalDateCapacity.get(date) || 0) + Math.max(20, Number(subject.dailyMinutes || 120)));
     }
@@ -187,11 +193,19 @@ export function getCapacityWarnings(state) {
   }
 
   for (const [date, used] of totalDateUsage.entries()) {
-    const capacity = totalDateCapacity.get(date) || [...subjectsById.values()].reduce((sum, subject) => sum + Math.max(20, Number(subject.dailyMinutes || 120)), 0);
+    const capacity = totalDateCapacity.get(date)
+      || [...subjectsById.values()].reduce((sum, subject) => sum + Math.max(20, Number(subject.dailyMinutes || 120)), 0);
     if (capacity && used > capacity) {
-      warnings.push({ scope: "total", date, used, capacity, message: `${date} 전체 학습량: ${used}분 / ${capacity}분으로 과밀` });
+      warnings.push({
+        scope: "total",
+        date,
+        used,
+        capacity,
+        message: `${date} 전체 학습량: ${used}분 / ${capacity}분으로 과밀`
+      });
     }
   }
+
   return warnings.sort((a, b) => a.date.localeCompare(b.date));
 }
 
@@ -200,6 +214,7 @@ export function getTaskPriority(task) {
   if (task.type === "patch") return 0;
   if (task.type === "review") return 1;
   if (task.scheduledDate && task.scheduledDate < todayISO() && task.status !== "done") return 2;
+
   const version = String(task.versionId || "");
   if (version === "v0") return 3;
   if (version === "v1") return 4;
@@ -207,6 +222,17 @@ export function getTaskPriority(task) {
   if (version === "v3") return 7;
   if (version === "v4") return 8;
   return Number.isFinite(Number(task.priority)) ? Number(task.priority) : 20;
+}
+
+function getSchedulingEndDate(subject, task, today) {
+  const studyFinishDate = getStudyFinishDate(subject);
+  const targetDate = getSubjectTargetDate(subject);
+
+  if (task.type === "study") {
+    return studyFinishDate && studyFinishDate >= today ? studyFinishDate : today;
+  }
+
+  return targetDate && targetDate >= today ? targetDate : addDaysISO(today, 7);
 }
 
 function isStudyLike(task) {
