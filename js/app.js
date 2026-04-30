@@ -2,26 +2,30 @@ import { loadState, saveState } from "./storage.js";
 import { getActiveSubject, todayISO } from "./state.js";
 import { $, toast } from "./ui.js";
 import { bindEvents } from "./events.js";
-import { renderSubjectList, renderQuickStats, renderTodayBuild, renderWeekBuild, renderCalendarMonth, renderCapacityWarnings, renderRebuildPreview, renderVersionBoard, renderPerformanceList, renderPerformanceSubjectOptions } from "./dashboardRenderer.js";
+import {
+  renderSubjectList,
+  renderQuickStats,
+  renderTodayBuild,
+  renderWeekBuild,
+  renderCalendarMonth,
+  renderCapacityWarnings,
+  renderRebuildPreview,
+  renderVersionBoard,
+  renderPerformanceList,
+  renderPerformanceSubjectOptions
+} from "./dashboardRenderer.js";
 import { renderTreeHTML, curriculumToText } from "./curriculumParser.js";
 import { versionsToText } from "./versionEngine.js";
 import { renderSync } from "./renderSync.js";
+import { renderScheduleSettings } from "./ui/renderScheduleSettings.js";
+import { scheduleAllPending } from "./planner/planner.js";
 
-let state = loadState();
+let state = scheduleAllPending(loadState());
 let latestRebuildPreview = null;
 
-function getState() {
-  return state;
-}
-
-function getLatestRebuildPreview() {
-  return latestRebuildPreview;
-}
-
-function setLatestRebuildPreview(plan) {
-  latestRebuildPreview = plan;
-}
-
+function getState() { return state; }
+function getLatestRebuildPreview() { return latestRebuildPreview; }
+function setLatestRebuildPreview(plan) { latestRebuildPreview = plan; }
 function setState(nextState) {
   state = nextState;
   saveState(state);
@@ -30,52 +34,53 @@ function setState(nextState) {
 function render() {
   const selectedDate = $("#buildDate")?.value || todayISO();
   const activeSubject = getActiveSubject(state);
-
   if ($("#buildDate") && !$("#buildDate").value) $("#buildDate").value = todayISO();
   if ($("#calendarMonth") && !$("#calendarMonth").value) $("#calendarMonth").value = selectedDate.slice(0, 7);
-
-  if ($("#syncView")) {
-    renderSync($("#syncView"));
-  }
-
-  $("#subjectList").innerHTML = renderSubjectList(state);
-  $("#quickStats").innerHTML = renderQuickStats(state, selectedDate);
-  $("#todayBuild").innerHTML = renderTodayBuild(state, selectedDate);
-  $("#weekBuild").innerHTML = renderWeekBuild(state, selectedDate);
+  if ($("#syncView")) renderSync($("#syncView"));
+  if ($("#scheduleSettingsView")) renderScheduleSettings($("#scheduleSettingsView"), state);
+  if ($("#subjectList")) $("#subjectList").innerHTML = renderSubjectList(state);
+  if ($("#quickStats")) $("#quickStats").innerHTML = renderQuickStats(state, selectedDate);
+  if ($("#todayBuild")) $("#todayBuild").innerHTML = renderTodayBuild(state, selectedDate);
+  if ($("#weekBuild")) $("#weekBuild").innerHTML = renderWeekBuild(state, selectedDate);
   if ($("#calendarView")) $("#calendarView").innerHTML = renderCalendarMonth(state, $("#calendarMonth")?.value || selectedDate.slice(0, 7));
   if ($("#capacityWarnings")) $("#capacityWarnings").innerHTML = renderCapacityWarnings(state);
   if ($("#rebuildPreview")) $("#rebuildPreview").innerHTML = renderRebuildPreview(latestRebuildPreview);
-  $("#versionBoard").innerHTML = renderVersionBoard(activeSubject, state.tasks);
-  $("#performanceSubject").innerHTML = renderPerformanceSubjectOptions(state.subjects);
-  $("#performanceList").innerHTML = renderPerformanceList(state);
-  $("#debugState").textContent = JSON.stringify(state, null, 2);
-
+  if ($("#versionBoard")) $("#versionBoard").innerHTML = renderVersionBoard(activeSubject, state.tasks);
+  if ($("#performanceSubject")) $("#performanceSubject").innerHTML = renderPerformanceSubjectOptions(state.subjects);
+  if ($("#performanceList")) $("#performanceList").innerHTML = renderPerformanceList(state);
+  if ($("#debugState")) $("#debugState").textContent = JSON.stringify(state, null, 2);
   fillActiveSubjectForm(activeSubject);
 }
 
 function fillActiveSubjectForm(subject) {
   if (!subject) {
-    $("#subjectId").value = "";
-    $("#subjectName").value = "";
-    $("#examDate").value = todayISO();
-    $("#subjectType").value = "problem";
-    $("#dailyMinutes").value = 120;
-    $("#versionsInput").value = "v0: 개념서\nv1: 기본 유형서\nv2: 중난도 유형서\nv3: 심화서";
-    $("#curriculumInput").value = "";
-    $("#curriculumPreview").innerHTML = "";
+    if ($("#subjectId")) $("#subjectId").value = "";
+    if ($("#subjectName")) $("#subjectName").value = "";
+    if ($("#examDate")) $("#examDate").value = todayISO();
+    if ($("#subjectType")) $("#subjectType").value = "problem";
+    if ($("#dailyMinutes")) $("#dailyMinutes").value = 120;
+    if ($("#studyFinishBufferDays")) $("#studyFinishBufferDays").value = 7;
+    if ($("#versionsInput")) $("#versionsInput").value = "v0: 개념서\nv1: 기본 유형서\nv2: 중난도 유형서\nv3: 심화서";
+    if ($("#curriculumInput")) $("#curriculumInput").value = "";
+    if ($("#curriculumPreview")) $("#curriculumPreview").innerHTML = "";
     return;
   }
-
-  $("#subjectId").value = subject.id || "";
-  $("#subjectName").value = subject.name || "";
-  $("#examDate").value = subject.examDate || todayISO();
-  $("#subjectType").value = subject.type || "problem";
-  $("#dailyMinutes").value = subject.dailyMinutes || 120;
-  $("#versionsInput").value = versionsToText(subject.versions || []);
-  $("#curriculumInput").value = curriculumToText(subject.curriculum || []);
-  $("#curriculumPreview").innerHTML = renderTreeHTML(subject.curriculum || []);
+  if ($("#subjectId")) $("#subjectId").value = subject.id || "";
+  if ($("#subjectName")) $("#subjectName").value = subject.name || "";
+  if ($("#examDate")) $("#examDate").value = subject.examDate || todayISO();
+  if ($("#examDateStatus")) $("#examDateStatus").value = subject.examDateStatus || "estimated";
+  if ($("#provisionalExamDate")) $("#provisionalExamDate").value = subject.provisionalExamDate || "";
+  if ($("#examWindowStart")) $("#examWindowStart").value = subject.examWindowStart || "";
+  if ($("#examWindowEnd")) $("#examWindowEnd").value = subject.examWindowEnd || "";
+  if ($("#studyFinishBufferDays")) $("#studyFinishBufferDays").value = subject.studyFinishBufferDays ?? 7;
+  if ($("#allowRegularStudyOnExamDay")) $("#allowRegularStudyOnExamDay").checked = Boolean(subject.allowRegularStudyOnExamDay);
+  if ($("#subjectType")) $("#subjectType").value = subject.type || "problem";
+  if ($("#dailyMinutes")) $("#dailyMinutes").value = subject.dailyMinutes || 120;
+  if ($("#versionsInput")) $("#versionsInput").value = versionsToText(subject.versions || []);
+  if ($("#curriculumInput")) $("#curriculumInput").value = curriculumToText(subject.curriculum || []);
+  if ($("#curriculumPreview")) $("#curriculumPreview").innerHTML = renderTreeHTML(subject.curriculum || []);
 }
 
 bindEvents({ getState, setState, render, getLatestRebuildPreview, setLatestRebuildPreview });
 render();
-toast("Study Compiler v3.5 준비 완료");
+toast("Study Compiler v4.0 Planner 준비 완료");
