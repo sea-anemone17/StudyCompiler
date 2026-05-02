@@ -1,11 +1,11 @@
 export const STORAGE_KEY = "study_compiler_v09"; // 기존 데이터 유지용: 의도적으로 변경하지 않음
-export const CURRENT_SCHEMA_VERSION = 5;
-export const APP_VERSION = "v4.0-planner";
+export const CURRENT_SCHEMA_VERSION = 6;
+export const APP_VERSION = "v4.3-class-progress";
 
 // GitHub Pages 같은 정적 사이트에서는 publishable/anon key가 브라우저에 보입니다.
 // 데이터 보호는 Supabase RLS 정책으로 해야 하며, service_role/secret key는 절대 넣지 마세요.
-export const SUPABASE_URL = ""; // 예: "https://xxxxx.supabase.co"
-export const SUPABASE_PUBLISHABLE_KEY = ""; // 예: "sb_publishable_..." 또는 anon public key
+export const SUPABASE_URL = "https://lkhsvubyqchiiekjutyo.supabase.co";
+export const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxraHN2dWJ5cWNoaWlla2p1dHlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczNTg5MDksImV4cCI6MjA5MjkzNDkwOX0.A0BYUf7iShHV0lbaiil3eA7iAQheiIzQ_ANuCvxy_tM";
 
 export const DEFAULT_VERSIONS_TEXT = `v0: 개념서
 v1: 기본 유형서
@@ -81,7 +81,6 @@ export const UNDERSTANDING_STAGE_OPTIONS = [
   { value: "teach", label: "남에게 설명 가능" }
 ];
 
-
 export const PLANNING_MODES = {
   examRange: "시험범위 확정형",
   classProgress: "학교 진도 추적형",
@@ -113,8 +112,79 @@ export const EXAM_LIKELIHOOD_OPTIONS = {
   confirmed: "범위 포함 확정"
 };
 
+export const CLASS_PROGRESS_STUDY_LEVELS = {
+  recordOnly: "기록만",
+  reviewOnly: "복습만",
+  examCandidate: "시험 후보",
+  confirmedExam: "확정 범위"
+};
+
+// 학교 진도 기록의 강도별 복습 규칙입니다.
+// recordOnly: 태스크 생성 없음
+// reviewOnly: 당일 복습만
+// examCandidate: 당일 + 2일 뒤 복습 + 정규 대비 태스크
+// confirmedExam: 당일 + 2일 뒤 + 7일 뒤 복습 + 정규 대비 + 최종 확인
+export const CLASS_PROGRESS_REVIEW_RULE_IDS_BY_LEVEL = {
+  recordOnly: [],
+  reviewOnly: ["C0"],
+  examCandidate: ["C0", "C2"],
+  confirmedExam: ["C0", "C2", "C7"]
+};
+
 export const CLASS_REVIEW_RULES = [
-  { id: "C0", label: "당일 복습", offsetDays: 0, estimatedMinutes: 15 },
-  { id: "C2", label: "2일 뒤 재복습", offsetDays: 2, estimatedMinutes: 15 },
-  { id: "C7", label: "7일 뒤 회독", offsetDays: 7, estimatedMinutes: 20 }
+  { id: "C0", label: "당일 복습", offsetDays: 0, dueOffsetDays: 1, estimatedMinutes: 15 },
+  { id: "C2", label: "2일 뒤 재복습", offsetDays: 2, dueOffsetDays: 3, estimatedMinutes: 15 },
+  { id: "C7", label: "7일 뒤 회독", offsetDays: 7, dueOffsetDays: 9, estimatedMinutes: 20 }
 ];
+
+export const CLASS_PROGRESS_STUDY_TEMPLATES = {
+  literature: [
+    { id: "summary", label: "작품 내용 정리", estimatedMinutes: 20 },
+    { id: "analysis", label: "화자/정서/주제 분석", estimatedMinutes: 25 },
+    { id: "features", label: "표현상 특징 정리", estimatedMinutes: 20 },
+    { id: "problems", label: "문제 적용", estimatedMinutes: 30 }
+  ],
+  reading: [
+    { id: "structure", label: "지문 구조 정리", estimatedMinutes: 20 },
+    { id: "claims", label: "핵심 주장/근거 정리", estimatedMinutes: 20 },
+    { id: "questions", label: "문제 유형 적용", estimatedMinutes: 30 }
+  ],
+  text: [
+    { id: "content", label: "본문 내용 흐름 정리", estimatedMinutes: 20 },
+    { id: "vocab", label: "핵심 어휘 체크", estimatedMinutes: 15 },
+    { id: "grammar", label: "어법 포인트 분석", estimatedMinutes: 25 },
+    { id: "writing", label: "서술형 후보 정리", estimatedMinutes: 25 }
+  ],
+  grammar: [
+    { id: "rule", label: "규칙 정리", estimatedMinutes: 20 },
+    { id: "examples", label: "예문 분석", estimatedMinutes: 20 },
+    { id: "problems", label: "문제 적용", estimatedMinutes: 30 }
+  ],
+  vocab: [
+    { id: "meaning", label: "뜻/용례 정리", estimatedMinutes: 15 },
+    { id: "recall", label: "암기 확인", estimatedMinutes: 15 }
+  ],
+  lesson: [
+    { id: "notes", label: "수업 내용 정리", estimatedMinutes: 20 },
+    { id: "check", label: "핵심 확인", estimatedMinutes: 20 }
+  ],
+  note: [
+    { id: "organize", label: "필기 정리", estimatedMinutes: 15 },
+    { id: "examPoint", label: "시험 포인트 표시", estimatedMinutes: 15 }
+  ],
+  problem: [
+    { id: "wrong", label: "틀린 문제 원인 정리", estimatedMinutes: 20 },
+    { id: "retry", label: "유형 재풀이", estimatedMinutes: 30 }
+  ],
+  default: [
+    { id: "organize", label: "핵심 정리", estimatedMinutes: 20 },
+    { id: "apply", label: "문제/예문 적용", estimatedMinutes: 25 }
+  ]
+};
+
+export const CLASS_PROGRESS_EXAM_PREP_TEMPLATES = {
+  default: [
+    { id: "finalReview", label: "시험 전 최종 회독", estimatedMinutes: 20 },
+    { id: "weakPoint", label: "취약 포인트 확인", estimatedMinutes: 20 }
+  ]
+};
