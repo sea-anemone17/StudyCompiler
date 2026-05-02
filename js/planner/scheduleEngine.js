@@ -118,7 +118,6 @@ function computeBalancedDayTargets({ blocksByDate, tasks }) {
   const map = new Map();
   const dates = [...blocksByDate.keys()];
   const activeTasks = tasks.filter(task => task.status !== "deferred");
-  const total = activeTasks.reduce((sum, task) => sum + Number(task.estimatedMinutes || 0), 0);
 
   const estimatedMinutes = activeTasks
     .map(task => Number(task.estimatedMinutes || 0))
@@ -126,35 +125,52 @@ function computeBalancedDayTargets({ blocksByDate, tasks }) {
 
   const smallestTaskMinutes = Math.max(
     SCHEDULER_POLICY.minTaskMinutes || 10,
-    Math.min(...estimatedMinutes, SCHEDULER_POLICY.defaultBlockMinutes)
+    estimatedMinutes.length
+      ? Math.min(...estimatedMinutes, SCHEDULER_POLICY.defaultBlockMinutes)
+      : SCHEDULER_POLICY.minTaskMinutes || 10
   );
 
   const usableDates = dates.filter(date => getDayCapacity(blocksByDate.get(date)) > 0);
-  if (!usableDates.length || total <= 0) return map;
+  if (!usableDates.length || !activeTasks.length) return map;
 
-  const weights = usableDates.map((date, index) => {
+  const studyTasks = activeTasks.filter(task => task.type === "study");
+  const otherTasks = activeTasks.filter(task => task.type !== "study");
+
+  const studyTotal = studyTasks.reduce((sum, task) => sum + Number(task.estimatedMinutes || 0), 0);
+  const otherTotal = otherTasks.reduce((sum, task) => sum + Number(task.estimatedMinutes || 0), 0);
+
+  const lastStudyDeadline = studyTasks
+    .map(task => task._deadline)
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+
+  const studyDates = lastStudyDeadline
+    ? usableDates.filter(date => date <= lastStudyDeadline)
+    : usableDates;
+
+  const studyWeights = makeCapacityWeights(studyDates, blocksByDate);
+  const otherWeights = makeCapacityWeights(usableDates, blocksByDate);
+
+  const studyWeightSum = studyWeights.reduce((sum, weight) => sum + weight, 0) || 1;
+  const otherWeightSum = otherWeights.reduce((sum, weight) => sum + weight, 0) || 1;
+
+  usableDates.forEach(date => {
     const blocks = blocksByDate.get(date) || [];
     const capacity = getDayCapacity(blocks);
-    const ratio = usableDates.length <= 1 ? 1 : index / (usableDates.length - 1);
 
-    // 시기 가중치: 초반 몰빵 방지, 후반은 약간 더 실음
-    const timingWeight = ratio < 0.33 ? 0.82 : ratio < 0.72 ? 1.0 : 1.18;
+    const studyIndex = studyDates.indexOf(date);
+    const otherIndex = usableDates.indexOf(date);
 
-    // 핵심 수정: 날짜 수가 아니라 "그날 실제 공부 가능 시간"에 비례해서 목표량 배분
-    return Math.max(1, capacity) * timingWeight;
-  });
+    const studyTarget = studyIndex >= 0
+      ? Math.ceil((studyTotal * studyWeights[studyIndex]) / studyWeightSum)
+      : 0;
 
-  const weightSum = weights.reduce((sum, weight) => sum + weight, 0) || 1;
+    const otherTarget = Math.ceil((otherTotal * otherWeights[otherIndex]) / otherWeightSum);
 
-  usableDates.forEach((date, index) => {
-    const blocks = blocksByDate.get(date) || [];
-    const capacity = getDayCapacity(blocks);
-    const rawTarget = Math.ceil((total * weights[index]) / weightSum);
-
-    // 너무 작은 목표 때문에 작은 태스크도 못 들어가는 상황 방지
+    const rawTarget = studyTarget + otherTarget;
     const target = Math.min(capacity, Math.max(smallestTaskMinutes, rawTarget));
 
-    // 그날 목표보다 조금 더는 허용하되, 실제 시간표 용량은 넘지 않음
     const maxPlanned = Math.min(
       capacity,
       Math.max(target + SCHEDULER_POLICY.minTaskMinutes, Math.ceil(target * 1.35))
@@ -169,6 +185,16 @@ function computeBalancedDayTargets({ blocksByDate, tasks }) {
   });
 
   return map;
+}
+
+function makeCapacityWeights(dates, blocksByDate) {
+  return dates.map((date, index) => {
+    const blocks = blocksByDate.get(date) || [];
+    const capacity = getDayCapacity(blocks);
+    const ratio = dates.length <= 1 ? 1 : index / (dates.length - 1);
+    const timingWeight = ratio < 0.33 ? 0.82 : ratio < 0.72 ? 1.0 : 1.18;
+    return Math.max(1, capacity) * timingWeight;
+  });
 }
 
 function hasUrgentCandidate(pending, satisfied, date, blocks) {
