@@ -7,11 +7,13 @@ import { generateStudyTasksForSubject, preserveTaskProgress } from "./taskGenera
 import { scheduleTasksForState } from "./scheduleEngine.js";
 import { createMissingReviewTasksForAll } from "./reviewPlanner.js";
 import { createMissingPatchTasksForAll } from "./patchPlanner.js";
+import { syncClassProgressTasks } from "./classProgressPlanner.js";
 
 export function normalizeStateForPlanning(state) {
   if (!state.weeklyAvailability) state.weeklyAvailability = createDefaultWeeklyAvailability();
   if (!state.dateOverrides || typeof state.dateOverrides !== "object") state.dateOverrides = {};
   ensureDurationProfiles(state);
+  if (!Array.isArray(state.classProgress)) state.classProgress = [];
   if (!Array.isArray(state.plannerWarnings)) state.plannerWarnings = [];
   return state;
 }
@@ -36,6 +38,7 @@ export function replanSubject(state, subjectId, options = {}) {
   });
 
   state.tasks.push(...preserved);
+  syncClassProgressTasks(state);
   attachFollowups(state);
   subject.planUpdatedAt = new Date().toISOString();
   subject.planFingerprint = createSubjectPlanFingerprint(subject);
@@ -54,12 +57,14 @@ export function replanAll(state, options = {}) {
     state.tasks = (state.tasks || []).filter(task => task.subjectId !== subjectId || task.type !== "study" || task.manual === true);
     state.tasks.push(...preserved);
   }
+  syncClassProgressTasks(state);
   attachFollowups(state);
   return scheduleAllPending(state, options);
 }
 
 export function scheduleAllPending(state, options = {}) {
   normalizeStateForPlanning(state);
+  syncClassProgressTasks(state);
   return scheduleTasksForState(state, options);
 }
 

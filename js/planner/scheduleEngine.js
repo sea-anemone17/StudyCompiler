@@ -17,60 +17,74 @@ export function scheduleTasksForState(state, options = {}) {
   });
 
   const subjectsById = new Map(subjects.map(subject => [subject.id, subject]));
-  const preservedDone = tasks.filter(task => task.status === "done");
+  const preservedDone = tasks.filter(task => task.status === "done" || task.type === "performance");
+  const doneOrScheduledPrereqs = new Set(preservedDone.map(task => task.id));
   const schedulable = tasks.filter(task => task.status !== "done" && task.type !== "performance");
   const exploded = SCHEDULER_POLICY.splitLongTasks
     ? explodeOversizedTasks(schedulable, blocks, subjectsById, state.durationProfiles || {})
     : schedulable;
-  const sorted = [...exploded].sort((a, b) => taskSortScore(a, subjectsById, anchorDate) - taskSortScore(b, subjectsById, anchorDate));
-  const scheduled = [];
-  const warnings = [];
 
-  for (const task of sorted) {
+  const prepared = exploded.map(task => {
     const subject = subjectsById.get(task.subjectId);
     const estimate = estimateTaskMinutes(task, state.durationProfiles || {});
-    const deadline = getTaskDeadline(task, subject, anchorDate);
-    const earliest = getTaskEarliestDate(task, anchorDate);
-    const candidate = findBestBlock({ task, estimate, blocks, earliest, deadline });
-
-    if (!candidate) {
-      scheduled.push({
-        ...task,
-        estimatedMinutes: estimate,
-        plannedMinutes: estimate,
-        status: task.status === "deferred" ? "deferred" : "unscheduled",
-        scheduledDate: null,
-        scheduledBlockId: null,
-        unscheduledReason: makeUnscheduledReason(task, estimate, earliest, deadline)
-      });
-      warnings.push({
-        type: "unscheduled",
-        taskId: task.id,
-        subjectId: task.subjectId,
-        message: `${task.title || task.conceptTitle} 배치 실패 · 필요 ${estimate}분 · 기한 ${deadline}`
-      });
-      continue;
-    }
-
-    const startOffset = candidate.usedMinutes || 0;
-    const scheduledStart = addMinutesToTime(candidate.start, startOffset);
-    const scheduledEnd = addMinutesToTime(candidate.start, startOffset + estimate);
-    candidate.usedMinutes = startOffset + estimate;
-    candidate.remainingMinutes = Math.max(0, Number(candidate.capacityMinutes || candidate.minutes || 0) - candidate.usedMinutes);
-    candidate.assignedTaskIds.push(task.id);
-
-    scheduled.push({
+    return {
       ...task,
-      status: task.status === "unscheduled" ? "pending" : task.status,
       estimatedMinutes: estimate,
       plannedMinutes: estimate,
-      scheduledDate: candidate.date,
-      scheduledBlockId: candidate.id,
-      scheduledStart,
-      scheduledEnd,
-      dailyCapacityMinutes: candidate.capacityMinutes,
-      schedulerVersion: "v4-block-constraint",
-      unscheduledReason: null
+      _deadline: getTaskDeadline(task, subject, anchorDate),
+      _earliest: getTaskEarliestDate(task, anchorDate),
+      _sortOrder: getTaskSortOrder(task, subject, anchorDate)
+    };
+  });
+
+  const blocksByDate = groupBlocksByDate(blocks);
+  const dayTargets = computeBalancedDayTargets({ blocksByDate, tasks: prepared, anchorDate });
+  const pending = new Map(prepared.map(task => [task.id, task]));
+  const scheduled = [];
+  const warnings = [];
+  const satisfied = new Set(doneOrScheduledPrereqs);
+
+  for (const [date, dayBlocks] of blocksByDate.entries()) {
+    const dayTarget = dayTargets.get(date) || { targetMinutes: 0, maxPlannedMinutes: 0, capacityMinutes: getDayCapacity(dayBlocks) };
+    let guard = 0;
+    while (guard < 500) {
+      guard += 1;
+      const dayUsed = getDayUsed(dayBlocks);
+      const urgent = hasUrgentCandidate(pending, satisfied, date, dayBlocks);
+      if (!urgent && dayUsed >= dayTarget.targetMinutes) break;
+      if (dayUsed >= dayTarget.maxPlannedMinutes && !urgent) break;
+
+      const candidate = pickCandidateForDate({ pending, satisfied, date, dayBlocks });
+      if (!candidate) break;
+      const block = findBestBlockInDay(candidate, dayBlocks);
+      if (!block) {
+        // 오늘은 조건상 안 들어가므로 뒤 날짜 후보를 기다린다.
+        break;
+      }
+      if (!urgent && dayUsed > 0 && dayUsed + candidate.estimatedMinutes > dayTarget.maxPlannedMinutes) break;
+
+      placeTask(candidate, block);
+      scheduled.push(cleanScheduledTask(candidate, block));
+      pending.delete(candidate.id);
+      satisfied.add(candidate.id);
+    }
+  }
+
+  for (const task of pending.values()) {
+    scheduled.push({
+      ...stripPrivateFields(task),
+      status: task.status === "deferred" ? "deferred" : "unscheduled",
+      scheduledDate: null,
+      scheduledBlockId: null,
+      scheduledStart: null,
+      scheduledEnd: null,
+      unscheduledReason: makeUnscheduledReason(task, task.estimatedMinutes, task._earliest, task._deadline)
+    });
+    warnings.push({
+      type: "unscheduled",
+      taskId: task.id,
+      subjectId: task.subjectId,
+      message: `${task.title || task.conceptTitle} 배치 실패 · 필요 ${task.estimatedMinutes}분 · 기한 ${task._deadline}`
     });
   }
 
@@ -78,6 +92,7 @@ export function scheduleTasksForState(state, options = {}) {
     ...state,
     tasks: [...preservedDone, ...scheduled].sort(sortByDateAndStart),
     studyBlocks: blocks,
+    dayTargets: [...dayTargets.values()],
     plannerWarnings: [...(state.plannerWarnings || []).filter(w => w.persist), ...warnings],
     lastPlannedAt: new Date().toISOString()
   };
@@ -89,25 +104,146 @@ export function getScheduleHorizonEnd(subjects = [], anchorDate = todayISO()) {
   return addDaysISO(anchorDate, 30);
 }
 
-function findBestBlock({ task, estimate, blocks, earliest, deadline }) {
-  const compatible = blocks
-    .filter(block => block.date >= earliest && block.date <= deadline)
-    .filter(block => isBlockCompatibleWithTask(block, task))
-    .filter(block => Number(block.remainingMinutes ?? block.capacityMinutes ?? block.minutes ?? 0) + SCHEDULER_POLICY.overflowToleranceMinutes >= estimate)
+function groupBlocksByDate(blocks) {
+  const map = new Map();
+  for (const block of blocks) {
+    const list = map.get(block.date) || [];
+    list.push(block);
+    map.set(block.date, list);
+  }
+  return new Map([...map.entries()].sort((a, b) => a[0].localeCompare(b[0])));
+}
+
+function computeBalancedDayTargets({ blocksByDate, tasks }) {
+  const map = new Map();
+  const dates = [...blocksByDate.keys()];
+  const activeTasks = tasks.filter(task => task.status !== "deferred");
+  const total = activeTasks.reduce((sum, task) => sum + Number(task.estimatedMinutes || 0), 0);
+  const smallestTaskMinutes = Math.max(SCHEDULER_POLICY.minTaskMinutes || 10, Math.min(...activeTasks.map(task => Number(task.estimatedMinutes || 0)).filter(Boolean), SCHEDULER_POLICY.defaultBlockMinutes));
+  const usableDates = dates.filter(date => getDayCapacity(blocksByDate.get(date)) > 0);
+  if (!usableDates.length) return map;
+
+  const weights = usableDates.map((date, index) => {
+    const ratio = usableDates.length <= 1 ? 1 : index / (usableDates.length - 1);
+    // 초반 몰빵 방지: 초반은 가볍게, 중후반은 조금 더 실리게.
+    return ratio < 0.33 ? 0.82 : ratio < 0.72 ? 1.0 : 1.18;
+  });
+  const weightSum = weights.reduce((sum, weight) => sum + weight, 0) || 1;
+
+  usableDates.forEach((date, index) => {
+    const blocks = blocksByDate.get(date) || [];
+    const capacity = getDayCapacity(blocks);
+    const rawTarget = Math.ceil((total * weights[index]) / weightSum);
+    const target = Math.min(capacity, Math.max(smallestTaskMinutes, rawTarget));
+    const maxPlanned = Math.min(capacity, Math.max(target + 10, Math.ceil(target * 1.35)));
+    map.set(date, { date, capacityMinutes: capacity, targetMinutes: target, maxPlannedMinutes: maxPlanned });
+  });
+  return map;
+}
+
+function hasUrgentCandidate(pending, satisfied, date, blocks) {
+  for (const task of pending.values()) {
+    if (task._deadline > date) continue;
+    if (!isCandidateReady(task, satisfied, date, blocks)) continue;
+    return true;
+  }
+  return false;
+}
+
+function pickCandidateForDate({ pending, satisfied, date, dayBlocks }) {
+  const candidates = [...pending.values()]
+    .filter(task => isCandidateReady(task, satisfied, date, dayBlocks))
+    .sort((a, b) => {
+      const urgent = urgencyScore(a, date) - urgencyScore(b, date);
+      if (urgent !== 0) return urgent;
+      const req = bestRequiredBoost(dayBlocks, a) - bestRequiredBoost(dayBlocks, b);
+      if (req !== 0) return req;
+      const deadline = String(a._deadline).localeCompare(String(b._deadline));
+      if (deadline !== 0) return deadline;
+      const order = Number(a._sortOrder || 0) - Number(b._sortOrder || 0);
+      if (order !== 0) return order;
+      return Number(a.estimatedMinutes || 0) - Number(b.estimatedMinutes || 0);
+    });
+  return candidates[0] || null;
+}
+
+function isCandidateReady(task, satisfied, date, dayBlocks) {
+  if (task._earliest && task._earliest > date) return false;
+  if (task._deadline && task._deadline < date && task.type === "study") return false;
+  if (!prerequisitesSatisfied(task, satisfied)) return false;
+  return dayBlocks.some(block => canFitTaskInBlock(task, block));
+}
+
+function prerequisitesSatisfied(task, satisfied) {
+  return (task.prerequisiteTaskIds || []).every(id => satisfied.has(id));
+}
+
+function findBestBlockInDay(task, dayBlocks) {
+  return dayBlocks
+    .filter(block => canFitTaskInBlock(task, block))
     .sort((a, b) => {
       const required = getRequiredSubjectBoost(a, task) - getRequiredSubjectBoost(b, task);
       if (required !== 0) return required;
-      const date = a.date.localeCompare(b.date);
-      if (date !== 0) return date;
-      const remainingA = Number(a.remainingMinutes ?? a.capacityMinutes ?? a.minutes ?? 0) - estimate;
-      const remainingB = Number(b.remainingMinutes ?? b.capacityMinutes ?? b.minutes ?? 0) - estimate;
+      const start = String(a.start || "").localeCompare(String(b.start || ""));
+      if (start !== 0) return start;
+      const remainingA = Number(a.remainingMinutes ?? a.capacityMinutes ?? a.minutes ?? 0) - Number(task.estimatedMinutes || 0);
+      const remainingB = Number(b.remainingMinutes ?? b.capacityMinutes ?? b.minutes ?? 0) - Number(task.estimatedMinutes || 0);
       return remainingA - remainingB;
-    });
-  return compatible[0] || null;
+    })[0] || null;
+}
+
+function canFitTaskInBlock(task, block) {
+  if (!isBlockCompatibleWithTask(block, task)) return false;
+  const remaining = Number(block.remainingMinutes ?? block.capacityMinutes ?? block.minutes ?? 0);
+  return remaining + SCHEDULER_POLICY.overflowToleranceMinutes >= Number(task.estimatedMinutes || 0);
+}
+
+function placeTask(task, block) {
+  const estimate = Number(task.estimatedMinutes || 0);
+  const startOffset = block.usedMinutes || 0;
+  task.scheduledDate = block.date;
+  task.scheduledBlockId = block.id;
+  task.scheduledStart = addMinutesToTime(block.start, startOffset);
+  task.scheduledEnd = addMinutesToTime(block.start, startOffset + estimate);
+  block.usedMinutes = startOffset + estimate;
+  block.remainingMinutes = Math.max(0, Number(block.capacityMinutes || block.minutes || 0) - block.usedMinutes);
+  block.assignedTaskIds.push(task.id);
+}
+
+function cleanScheduledTask(task, block) {
+  return {
+    ...stripPrivateFields(task),
+    status: task.status === "unscheduled" ? "pending" : task.status,
+    scheduledDate: task.scheduledDate,
+    scheduledBlockId: block.id,
+    scheduledStart: task.scheduledStart,
+    scheduledEnd: task.scheduledEnd,
+    dailyCapacityMinutes: block.capacityMinutes,
+    schedulerVersion: "v4-balanced-ordered",
+    unscheduledReason: null
+  };
+}
+
+function stripPrivateFields(task) {
+  const { _deadline, _earliest, _sortOrder, ...rest } = task;
+  return rest;
+}
+
+function urgencyScore(task, date) {
+  if (task._deadline <= date) return -1000;
+  if (task.type === "classReview") return -250;
+  if (task.type === "patch") return -180;
+  if (task.type === "review") return -120;
+  return 0;
+}
+
+function bestRequiredBoost(blocks, task) {
+  return Math.min(...blocks.map(block => getRequiredSubjectBoost(block, task)), 0);
 }
 
 function getTaskDeadline(task, subject, anchorDate) {
   if (task.type === "study") return getSubjectStudyDeadline(subject, anchorDate);
+  if (task.type === "classReview") return task.dueDate || task.scheduledDate || addDaysISO(anchorDate, 7);
   if (task.type === "review" || task.type === "patch" || task.type === "finalReview") {
     return getSubjectTargetDate(subject) || task.scheduledDate || addDaysISO(anchorDate, 14);
   }
@@ -115,18 +251,19 @@ function getTaskDeadline(task, subject, anchorDate) {
 }
 
 function getTaskEarliestDate(task, anchorDate) {
+  if (task.earliestDate) return task.earliestDate < anchorDate ? anchorDate : task.earliestDate;
   if (task.scheduledDate && task.type !== "study") return task.scheduledDate < anchorDate ? anchorDate : task.scheduledDate;
   return anchorDate;
 }
 
-function taskSortScore(task, subjectsById, anchorDate) {
-  const subject = subjectsById.get(task.subjectId);
+function getTaskSortOrder(task, subject, anchorDate) {
   const deadline = getTaskDeadline(task, subject, anchorDate);
   const daysUntil = Math.max(0, buildDateRange(anchorDate, deadline).length - 1);
-  const typeWeight = task.type === "patch" ? 0 : task.type === "review" ? 15 : task.type === "study" ? 30 : 50;
+  const typeWeight = task.type === "classReview" ? -50 : task.type === "patch" ? 0 : task.type === "review" ? 15 : task.type === "study" ? 30 : 50;
+  const sequence = Number(task.sequenceOrder ?? 999999);
   const priority = Number(task.priority ?? 10) * 3;
   const overdue = task.scheduledDate && task.scheduledDate < anchorDate ? -100 : 0;
-  return overdue + typeWeight + daysUntil * 2 + priority;
+  return overdue + typeWeight + daysUntil * 2 + sequence / 1000 + priority;
 }
 
 function explodeOversizedTasks(tasks, blocks, subjectsById, durationProfiles) {
@@ -146,26 +283,41 @@ function explodeOversizedTasks(tasks, blocks, subjectsById, durationProfiles) {
     }
     const partCount = Math.ceil(estimate / maxBlock);
     const partMinutes = Math.ceil(estimate / partCount);
+    let previousPartId = null;
     for (let index = 0; index < partCount; index += 1) {
+      const partId = `${task.id}__part_${index + 1}`;
+      const minutes = index === partCount - 1 ? estimate - partMinutes * (partCount - 1) : partMinutes;
       result.push({
         ...task,
-        id: `${task.id}__part_${index + 1}`,
+        id: partId,
         parentTaskId: task.id,
         title: `${task.title || task.conceptTitle} (${index + 1}/${partCount})`,
-        estimatedMinutes: index === partCount - 1 ? estimate - partMinutes * (partCount - 1) : partMinutes,
-        plannedMinutes: index === partCount - 1 ? estimate - partMinutes * (partCount - 1) : partMinutes,
+        estimatedMinutes: minutes,
+        plannedMinutes: minutes,
+        prerequisiteTaskIds: previousPartId ? [previousPartId] : (task.prerequisiteTaskIds || []),
         partIndex: index + 1,
         partCount,
+        sequenceOrder: Number(task.sequenceOrder || 0) + index / 100,
         splitReason: `단일 블록 최대 ${maxBlock}분 초과`,
         subjectSnapshotName: subject?.name || ""
       });
+      previousPartId = partId;
     }
   }
   return result;
 }
 
 function makeUnscheduledReason(task, estimate, earliest, deadline) {
-  return `가능한 시간 블록이 부족합니다. 필요 ${estimate}분 / 범위 ${earliest}~${deadline}`;
+  const prereq = (task.prerequisiteTaskIds || []).length ? " / 선행 태스크 미완료 가능" : "";
+  return `가능한 시간 블록이 부족합니다. 필요 ${estimate}분 / 범위 ${earliest}~${deadline}${prereq}`;
+}
+
+function getDayCapacity(blocks = []) {
+  return blocks.reduce((sum, block) => sum + Number(block.capacityMinutes || block.minutes || 0), 0);
+}
+
+function getDayUsed(blocks = []) {
+  return blocks.reduce((sum, block) => sum + Number(block.usedMinutes || 0), 0);
 }
 
 function sortByDateAndStart(a, b) {
@@ -175,5 +327,5 @@ function sortByDateAndStart(a, b) {
   const sa = a.scheduledStart || "99:99";
   const sb = b.scheduledStart || "99:99";
   if (sa !== sb) return sa.localeCompare(sb);
-  return String(a.title || "").localeCompare(String(b.title || ""));
+  return Number(a.sequenceOrder ?? 999999) - Number(b.sequenceOrder ?? 999999) || String(a.title || "").localeCompare(String(b.title || ""));
 }
