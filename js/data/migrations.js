@@ -68,8 +68,10 @@ export function migrateTask(task = {}) {
 }
 
 function getDefaultPriority(task = {}) {
+  if (task.type === "classExamPrep") return 0.2;
   if (task.type === "patch") return 0;
-  if (task.type === "review") return 0.5;
+  if (task.type === "classStudy") return 0.6;
+  if (task.type === "review" || task.type === "classReview") return 0.5;
   if (task.versionId === "v0") return 1;
   if (task.versionId === "v1") return 2;
   if (task.versionId === "v2") return 3;
@@ -77,8 +79,8 @@ function getDefaultPriority(task = {}) {
   return 10;
 }
 
-
 export function migrateClassProgress(item = {}) {
+  const includedInExamRange = Boolean(item.includedInExamRange) || item.examLikelihood === "confirmed";
   return {
     id: item.id || "",
     subjectId: item.subjectId || "",
@@ -86,10 +88,18 @@ export function migrateClassProgress(item = {}) {
     title: item.title || "",
     type: item.type || "lesson",
     teacherSignal: item.teacherSignal || "medium",
-    examLikelihood: item.examLikelihood || "unknown",
+    examLikelihood: includedInExamRange ? "confirmed" : (item.examLikelihood || "unknown"),
     memo: item.memo || "",
-    includedInExamRange: Boolean(item.includedInExamRange),
+    includedInExamRange,
+    studyPlanLevel: item.studyPlanLevel || inferStudyPlanLevel({ ...item, includedInExamRange }),
     createdAt: item.createdAt || new Date().toISOString(),
     updatedAt: item.updatedAt || item.createdAt || new Date().toISOString()
   };
+}
+
+function inferStudyPlanLevel(item = {}) {
+  if (item.includedInExamRange || item.examLikelihood === "confirmed") return "confirmedExam";
+  if (item.teacherSignal === "critical") return "confirmedExam";
+  if (item.teacherSignal === "high" || item.examLikelihood === "likely") return "examCandidate";
+  return "reviewOnly";
 }
