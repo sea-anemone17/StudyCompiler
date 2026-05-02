@@ -30,6 +30,19 @@ function renderDay(entry, subjectOptions) {
   `;
 }
 
+export function renderEmptyScheduleBlock(weekday, index, subjects = []) {
+  const subjectOptions = (subjects || [])
+    .map(subject => `<option value="${escapeHTML(subject.id)}">${escapeHTML(subject.name)}</option>`)
+    .join("");
+
+  return renderBlock(Number(weekday), {
+    start: "19:00",
+    end: "20:30",
+    allowedSubjectIds: [],
+    requiredSubjectIds: []
+  }, index, subjectOptions);
+}
+
 function renderBlock(weekday, block, index, subjectOptions) {
   const id = `schedule-${weekday}-${index}`;
   const allowed = (block.allowedSubjectIds || []).join(",");
