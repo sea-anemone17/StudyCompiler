@@ -119,25 +119,55 @@ function computeBalancedDayTargets({ blocksByDate, tasks }) {
   const dates = [...blocksByDate.keys()];
   const activeTasks = tasks.filter(task => task.status !== "deferred");
   const total = activeTasks.reduce((sum, task) => sum + Number(task.estimatedMinutes || 0), 0);
-  const smallestTaskMinutes = Math.max(SCHEDULER_POLICY.minTaskMinutes || 10, Math.min(...activeTasks.map(task => Number(task.estimatedMinutes || 0)).filter(Boolean), SCHEDULER_POLICY.defaultBlockMinutes));
+
+  const estimatedMinutes = activeTasks
+    .map(task => Number(task.estimatedMinutes || 0))
+    .filter(Boolean);
+
+  const smallestTaskMinutes = Math.max(
+    SCHEDULER_POLICY.minTaskMinutes || 10,
+    Math.min(...estimatedMinutes, SCHEDULER_POLICY.defaultBlockMinutes)
+  );
+
   const usableDates = dates.filter(date => getDayCapacity(blocksByDate.get(date)) > 0);
-  if (!usableDates.length) return map;
+  if (!usableDates.length || total <= 0) return map;
 
   const weights = usableDates.map((date, index) => {
+    const blocks = blocksByDate.get(date) || [];
+    const capacity = getDayCapacity(blocks);
     const ratio = usableDates.length <= 1 ? 1 : index / (usableDates.length - 1);
-    // 초반 몰빵 방지: 초반은 가볍게, 중후반은 조금 더 실리게.
-    return ratio < 0.33 ? 0.82 : ratio < 0.72 ? 1.0 : 1.18;
+
+    // 시기 가중치: 초반 몰빵 방지, 후반은 약간 더 실음
+    const timingWeight = ratio < 0.33 ? 0.82 : ratio < 0.72 ? 1.0 : 1.18;
+
+    // 핵심 수정: 날짜 수가 아니라 "그날 실제 공부 가능 시간"에 비례해서 목표량 배분
+    return Math.max(1, capacity) * timingWeight;
   });
+
   const weightSum = weights.reduce((sum, weight) => sum + weight, 0) || 1;
 
   usableDates.forEach((date, index) => {
     const blocks = blocksByDate.get(date) || [];
     const capacity = getDayCapacity(blocks);
     const rawTarget = Math.ceil((total * weights[index]) / weightSum);
+
+    // 너무 작은 목표 때문에 작은 태스크도 못 들어가는 상황 방지
     const target = Math.min(capacity, Math.max(smallestTaskMinutes, rawTarget));
-    const maxPlanned = Math.min(capacity, Math.max(target + 10, Math.ceil(target * 1.35)));
-    map.set(date, { date, capacityMinutes: capacity, targetMinutes: target, maxPlannedMinutes: maxPlanned });
+
+    // 그날 목표보다 조금 더는 허용하되, 실제 시간표 용량은 넘지 않음
+    const maxPlanned = Math.min(
+      capacity,
+      Math.max(target + SCHEDULER_POLICY.minTaskMinutes, Math.ceil(target * 1.35))
+    );
+
+    map.set(date, {
+      date,
+      capacityMinutes: capacity,
+      targetMinutes: target,
+      maxPlannedMinutes: maxPlanned
+    });
   });
+
   return map;
 }
 
