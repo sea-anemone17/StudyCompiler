@@ -8,6 +8,7 @@ export function migrateState(state) {
   const subjects = Array.isArray(state?.subjects) ? state.subjects.map(migrateSubject) : [];
   const tasks = Array.isArray(state?.tasks) ? state.tasks.map(migrateTask) : [];
   const performanceItems = Array.isArray(state?.performanceItems) ? state.performanceItems : [];
+  const classProgress = Array.isArray(state?.classProgress) ? state.classProgress.map(migrateClassProgress) : [];
   return {
     ...base,
     ...state,
@@ -16,6 +17,7 @@ export function migrateState(state) {
     activeSubjectId: state?.activeSubjectId || subjects[0]?.id || null,
     tasks,
     performanceItems,
+    classProgress,
     weeklyAvailability: Array.isArray(state?.weeklyAvailability) ? state.weeklyAvailability : createDefaultWeeklyAvailability(),
     dateOverrides: state?.dateOverrides && typeof state.dateOverrides === "object" ? state.dateOverrides : {},
     durationProfiles: state?.durationProfiles && typeof state.durationProfiles === "object" ? state.durationProfiles : {},
@@ -36,6 +38,7 @@ export function migrateSubject(subject = {}) {
     examWindowEnd: subject.examWindowEnd || "",
     studyFinishBufferDays: Number(subject.studyFinishBufferDays ?? 7),
     allowRegularStudyOnExamDay: Boolean(subject.allowRegularStudyOnExamDay),
+    planningMode: subject.planningMode || "examRange",
     ...subject
   };
 }
@@ -72,4 +75,21 @@ function getDefaultPriority(task = {}) {
   if (task.versionId === "v2") return 3;
   if (task.versionId === "v3") return 4;
   return 10;
+}
+
+
+export function migrateClassProgress(item = {}) {
+  return {
+    id: item.id || "",
+    subjectId: item.subjectId || "",
+    date: item.date || "",
+    title: item.title || "",
+    type: item.type || "lesson",
+    teacherSignal: item.teacherSignal || "medium",
+    examLikelihood: item.examLikelihood || "unknown",
+    memo: item.memo || "",
+    includedInExamRange: Boolean(item.includedInExamRange),
+    createdAt: item.createdAt || new Date().toISOString(),
+    updatedAt: item.updatedAt || item.createdAt || new Date().toISOString()
+  };
 }
