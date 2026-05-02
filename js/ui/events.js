@@ -11,6 +11,7 @@ import { createRebuildPreview, applyRebuildPlan, recordTaskCompletionAndReplan }
 import { replanSubject, replanAll, scheduleAllPending, attachFollowups } from "../planner/planner.js";
 import { applyOutcomeToTask } from "../core/scoreModel.js";
 import { renderScheduleSettings, readScheduleSettings, renderEmptyScheduleBlock } from "./renderScheduleSettings.js";
+import { upsertClassProgress, removeClassProgress, toggleClassProgressExamRange } from "../planner/classProgressPlanner.js";
 
 export function bindEvents(context) {
   const { getState, setState, render, getLatestRebuildPreview, setLatestRebuildPreview } = context;
@@ -32,6 +33,7 @@ export function bindEvents(context) {
       examDate: todayISO(),
       examDateStatus: "estimated",
       type: "problem",
+      planningMode: "examRange",
       dailyMinutes: 120,
       studyFinishBufferDays: 7,
       curriculum: [],
@@ -60,6 +62,7 @@ export function bindEvents(context) {
       studyFinishBufferDays: Number($("#studyFinishBufferDays")?.value || active?.studyFinishBufferDays || 7),
       allowRegularStudyOnExamDay: Boolean($("#allowRegularStudyOnExamDay")?.checked),
       type: $("#subjectType")?.value || "problem",
+      planningMode: $("#planningMode")?.value || active?.planningMode || "examRange",
       dailyMinutes: Number($("#dailyMinutes")?.value || 120),
       curriculum: active?.curriculum || [],
       versions: active?.versions || parseVersionsText(DEFAULT_VERSIONS_TEXT)
@@ -160,6 +163,7 @@ export function bindEvents(context) {
     toast("수행평가를 추가했습니다.");
   });
 
+
   $("#buildDate")?.addEventListener("change", render);
   $("#calendarMonth")?.addEventListener("change", render);
   $("#exportBtn")?.addEventListener("click", () => exportState(getState()));
@@ -232,6 +236,32 @@ export function bindEvents(context) {
     });
   }
 
+  document.addEventListener("submit", event => {
+    const form = event.target.closest("#classProgressForm");
+    if (!form) return;
+    event.preventDefault();
+    const state = getState();
+    const subjectId = $("#classProgressSubject")?.value || state.activeSubjectId || state.subjects[0]?.id;
+    if (!subjectId) return toast("과목을 먼저 추가해 주세요.");
+    const title = $("#classProgressTitle")?.value.trim();
+    if (!title) return toast("오늘 배운 내용을 입력해 주세요.");
+    upsertClassProgress(state, {
+      subjectId,
+      date: $("#classProgressDate")?.value || todayISO(),
+      title,
+      type: $("#classProgressType")?.value || "lesson",
+      teacherSignal: $("#teacherSignal")?.value || "medium",
+      examLikelihood: $("#examLikelihood")?.value || "unknown",
+      includedInExamRange: Boolean($("#includedInExamRange")?.checked),
+      memo: $("#classProgressMemo")?.value.trim() || ""
+    });
+    form.reset();
+    if ($("#classProgressDate")) $("#classProgressDate").value = todayISO();
+    setState(scheduleAllPending(state));
+    render();
+    toast("학교 진도를 기록하고 복습 태스크를 만들었습니다.");
+  });
+
   document.addEventListener("click", event => {
     const subjectCard = event.target.closest(".subject-card");
     if (subjectCard) {
@@ -239,6 +269,15 @@ export function bindEvents(context) {
       state.activeSubjectId = subjectCard.dataset.subjectId;
       setState(state);
       render();
+      return;
+    }
+    const deleteClassProgress = event.target.closest(".delete-class-progress");
+    if (deleteClassProgress) {
+      const state = getState();
+      removeClassProgress(state, deleteClassProgress.dataset.progressId);
+      setState(scheduleAllPending(state));
+      render();
+      toast("학교 진도 기록을 삭제했습니다.");
       return;
     }
     const deletePerformance = event.target.closest(".delete-performance");
@@ -266,6 +305,15 @@ export function bindEvents(context) {
   });
 
   document.addEventListener("change", event => {
+    const includeClassProgress = event.target.closest(".class-progress-include");
+    if (includeClassProgress) {
+      const state = getState();
+      toggleClassProgressExamRange(state, includeClassProgress.dataset.progressId, includeClassProgress.checked);
+      setState(scheduleAllPending(state));
+      render();
+      toast(includeClassProgress.checked ? "확정 시험범위로 표시했습니다." : "시험범위 포함 표시를 해제했습니다.");
+      return;
+    }
     const metricInput = event.target.closest(".task-metric");
     if (metricInput) {
       const state = getState();
@@ -322,6 +370,7 @@ function fillSubjectForm(subject) {
   if ($("#studyFinishBufferDays")) $("#studyFinishBufferDays").value = subject.studyFinishBufferDays ?? 7;
   if ($("#allowRegularStudyOnExamDay")) $("#allowRegularStudyOnExamDay").checked = Boolean(subject.allowRegularStudyOnExamDay);
   if ($("#subjectType")) $("#subjectType").value = subject.type || "problem";
+  if ($("#planningMode")) $("#planningMode").value = subject.planningMode || "examRange";
   if ($("#dailyMinutes")) $("#dailyMinutes").value = subject.dailyMinutes || 120;
   if ($("#versionsInput")) $("#versionsInput").value = versionsToText(subject.versions || []);
   if ($("#curriculumInput")) $("#curriculumInput").value = curriculumToText(subject.curriculum || []);

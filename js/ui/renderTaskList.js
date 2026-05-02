@@ -7,7 +7,7 @@ export function renderTaskList(tasks = [], { compact = false } = {}) {
 }
 
 export function renderTaskItem(task, { compact = false } = {}) {
-  const badgeClass = task.type === "patch" ? "patch" : task.type === "review" ? "review" : task.status === "unscheduled" ? "danger" : "";
+  const badgeClass = task.type === "patch" ? "patch" : task.type === "review" ? "review" : task.type === "classReview" ? "review" : task.status === "unscheduled" ? "danger" : "";
   return `
     <article class="task-item ${task.status === "done" ? "done" : ""} ${task.status === "unscheduled" ? "unscheduled" : ""}">
       <label class="task-check">
@@ -29,7 +29,7 @@ export function renderTaskItem(task, { compact = false } = {}) {
 }
 
 export function renderTaskMetrics(task) {
-  if (!["study", "review", "patch"].includes(task.type)) return "";
+  if (!["study", "review", "patch", "classReview"].includes(task.type)) return "";
   return `
     <div class="task-metrics">
       <label for="actual-${escapeHTML(task.id)}">실제 시간</label>
