@@ -133,48 +133,39 @@ function computeBalancedDayTargets({ blocksByDate, tasks }) {
   const usableDates = dates.filter(date => getDayCapacity(blocksByDate.get(date)) > 0);
   if (!usableDates.length || !activeTasks.length) return map;
 
-  const studyTasks = activeTasks.filter(task => task.type === "study");
-  const otherTasks = activeTasks.filter(task => task.type !== "study");
+  const rawTargets = new Map(usableDates.map(date => [date, 0]));
 
-  const studyTotal = studyTasks.reduce((sum, task) => sum + Number(task.estimatedMinutes || 0), 0);
-  const otherTotal = otherTasks.reduce((sum, task) => sum + Number(task.estimatedMinutes || 0), 0);
+  for (const task of activeTasks) {
+    const estimate = Number(task.estimatedMinutes || 0);
+    if (!estimate) continue;
 
-  const lastStudyDeadline = studyTasks
-    .map(task => task._deadline)
-    .filter(Boolean)
-    .sort()
-    .at(-1);
+    const earliest = task._earliest || usableDates[0];
+    const deadline = task._deadline || usableDates[usableDates.length - 1];
+    const rangeDates = getUsableDatesForTask(usableDates, earliest, deadline);
+    const weights = makeCapacityWeights(rangeDates, blocksByDate);
+    const weightSum = weights.reduce((sum, weight) => sum + weight, 0) || 1;
 
-  const studyDates = lastStudyDeadline
-    ? usableDates.filter(date => date <= lastStudyDeadline)
-    : usableDates;
-
-  const studyWeights = makeCapacityWeights(studyDates, blocksByDate);
-  const otherWeights = makeCapacityWeights(usableDates, blocksByDate);
-
-  const studyWeightSum = studyWeights.reduce((sum, weight) => sum + weight, 0) || 1;
-  const otherWeightSum = otherWeights.reduce((sum, weight) => sum + weight, 0) || 1;
+    rangeDates.forEach((date, index) => {
+      const share = (estimate * weights[index]) / weightSum;
+      rawTargets.set(date, (rawTargets.get(date) || 0) + share);
+    });
+  }
 
   usableDates.forEach(date => {
     const blocks = blocksByDate.get(date) || [];
     const capacity = getDayCapacity(blocks);
+    const rawTarget = Math.ceil(rawTargets.get(date) || 0);
 
-    const studyIndex = studyDates.indexOf(date);
-    const otherIndex = usableDates.indexOf(date);
-
-    const studyTarget = studyIndex >= 0
-      ? Math.ceil((studyTotal * studyWeights[studyIndex]) / studyWeightSum)
+    const target = rawTarget > 0
+      ? Math.min(capacity, Math.max(smallestTaskMinutes, rawTarget))
       : 0;
 
-    const otherTarget = Math.ceil((otherTotal * otherWeights[otherIndex]) / otherWeightSum);
-
-    const rawTarget = studyTarget + otherTarget;
-    const target = Math.min(capacity, Math.max(smallestTaskMinutes, rawTarget));
-
-    const maxPlanned = Math.min(
-      capacity,
-      Math.max(target + SCHEDULER_POLICY.minTaskMinutes, Math.ceil(target * 1.35))
-    );
+    const maxPlanned = target > 0
+      ? Math.min(
+          capacity,
+          Math.max(target + SCHEDULER_POLICY.minTaskMinutes, Math.ceil(target * 1.35))
+        )
+      : 0;
 
     map.set(date, {
       date,
@@ -185,6 +176,20 @@ function computeBalancedDayTargets({ blocksByDate, tasks }) {
   });
 
   return map;
+}
+
+function getUsableDatesForTask(usableDates, earliest, deadline) {
+  let range = usableDates.filter(date => (!earliest || date >= earliest) && (!deadline || date <= deadline));
+  if (range.length) return range;
+
+  // 마감 전/후 요일 제한이 너무 빡빡하면, 완전 미배치 대신 가장 가까운 후보군을 남긴다.
+  range = usableDates.filter(date => !earliest || date >= earliest);
+  if (range.length) return range;
+
+  range = usableDates.filter(date => !deadline || date <= deadline);
+  if (range.length) return range;
+
+  return usableDates;
 }
 
 function makeCapacityWeights(dates, blocksByDate) {
@@ -299,11 +304,24 @@ function bestRequiredBoost(blocks, task) {
 
 function getTaskDeadline(task, subject, anchorDate) {
   if (task.type === "study") return getSubjectStudyDeadline(subject, anchorDate);
-  if (task.type === "classReview") return task.dueDate || task.scheduledDate || addDaysISO(anchorDate, 7);
+  if (task.type === "classReview") return getClassReviewDeadline(task, anchorDate);
   if (task.type === "review" || task.type === "patch" || task.type === "finalReview") {
     return getSubjectTargetDate(subject) || task.scheduledDate || addDaysISO(anchorDate, 14);
   }
   return task.dueDate || task.scheduledDate || addDaysISO(anchorDate, 30);
+}
+
+function getClassReviewDeadline(task, anchorDate) {
+  const base = task.dueDate || task.scheduledDate || addDaysISO(anchorDate, 7);
+  return addDaysISO(base, getClassReviewGraceDays(task));
+}
+
+function getClassReviewGraceDays(task = {}) {
+  const ruleId = String(task.reviewRuleId || task.versionId || "");
+  if (ruleId === "C0") return 1; // 당일 복습: 당일~다음날
+  if (ruleId === "C2") return 1; // 2일 뒤 복습: D+2~D+3
+  if (ruleId === "C7") return 2; // 7일 뒤 회독: D+7~D+9
+  return 1;
 }
 
 function getTaskEarliestDate(task, anchorDate) {
@@ -365,7 +383,12 @@ function explodeOversizedTasks(tasks, blocks, subjectsById, durationProfiles) {
 
 function makeUnscheduledReason(task, estimate, earliest, deadline) {
   const prereq = (task.prerequisiteTaskIds || []).length ? " / 선행 태스크 미완료 가능" : "";
-  return `가능한 시간 블록이 부족합니다. 필요 ${estimate}분 / 범위 ${earliest}~${deadline}${prereq}`;
+  const typeHint = task.type === "study"
+    ? "정규 진도 마감 전"
+    : task.type === "classReview"
+      ? "복습 허용 기간 안"
+      : "마감 전";
+  return `${typeHint} 가능한 시간 블록이 부족합니다. 필요 ${estimate}분 / 범위 ${earliest}~${deadline}${prereq}`;
 }
 
 function getDayCapacity(blocks = []) {
