@@ -1,0 +1,216 @@
+/* StudyCompiler school-progress UI patch
+   This file is intentionally additive: it does not replace the existing design system. */
+
+/* Hidden labels used by the newer index.html */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+  clip: rect(0, 0, 0, 0) !important;
+  clip-path: inset(50%) !important;
+}
+
+/* Extra semantic colors used by school-progress tasks */
+:root {
+  --gold: #b8843c;
+  --gold-soft: #f7ead6;
+  --blue: #50789d;
+  --blue-soft: #e4eef7;
+  --shadow-tiny: 0 6px 16px rgba(80, 58, 34, 0.055);
+}
+
+/* School progress form */
+.class-progress-card {
+  overflow: hidden;
+}
+
+.class-progress-card .hint {
+  max-width: 860px;
+}
+
+.class-progress-form {
+  margin-top: .95rem;
+  padding: .95rem;
+  border: 1px solid rgba(231, 218, 200, .78);
+  border-radius: 1.2rem;
+  background: rgba(255, 253, 248, .58);
+}
+
+.class-progress-form select,
+.class-progress-form input,
+.class-progress-form textarea {
+  background: rgba(255, 253, 248, .96);
+}
+
+.class-progress-form button[type="submit"] {
+  margin-top: .35rem;
+}
+
+/* School progress list */
+.class-progress-list {
+  display: grid;
+  gap: .75rem;
+}
+
+.class-progress-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: .9rem;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: 1.15rem;
+  background:
+    linear-gradient(180deg, rgba(255,253,248,.98), rgba(255,248,239,.95));
+  padding: .95rem;
+  box-shadow: var(--shadow-tiny);
+}
+
+.class-progress-item:hover {
+  border-color: var(--line-strong);
+  transform: translateY(-1px);
+  transition: transform .13s ease, border-color .13s ease;
+}
+
+.class-progress-item.included {
+  border-color: rgba(106, 92, 145, .38);
+  background:
+    linear-gradient(180deg, rgba(252,249,255,.96), rgba(247,242,255,.90));
+}
+
+.class-progress-item strong {
+  display: block;
+  margin-bottom: .25rem;
+  line-height: 1.35;
+}
+
+.class-progress-item p {
+  margin-bottom: .3rem;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.class-progress-item small {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  color: var(--text-soft);
+  font-weight: 850;
+}
+
+.class-progress-item .button-row {
+  justify-content: flex-end;
+  margin-top: 0;
+}
+
+/* Works even if the new patch names the level control differently */
+.study-plan-level,
+.class-progress-level,
+.progress-level,
+#studyPlanLevel {
+  border-color: rgba(184, 132, 60, .34);
+  background: var(--gold-soft);
+  color: #7a4b28;
+}
+
+/* Badges for dynamic exam-range states */
+.badge.candidate,
+.badge.examCandidate,
+.badge.study-plan-candidate {
+  background: var(--gold-soft);
+  color: var(--gold);
+}
+
+.badge.confirmed,
+.badge.confirmedExam,
+.badge.study-plan-confirmed {
+  background: var(--purple-soft);
+  color: var(--purple);
+}
+
+.badge.study,
+.badge.classStudy,
+.badge.classExamPrep {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.badge.recordOnly {
+  background: #eee3d6;
+  color: var(--muted);
+}
+
+.badge.reviewOnly {
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+/* Make newly generated class-study style tasks visually distinct if task type is surfaced */
+.task-item.classStudy,
+.task-item.classExamPrep {
+  border-color: rgba(80, 120, 157, .28);
+  background: linear-gradient(180deg, #fbfdff, #eef6fc);
+}
+
+/* Sync/Supabase panel */
+#syncView .card {
+  background:
+    linear-gradient(180deg, rgba(255,253,248,.92), rgba(242,248,238,.78));
+}
+
+#syncView h3 {
+  margin-top: .7rem;
+  color: var(--text-soft);
+}
+
+#syncView .button-row {
+  margin-bottom: .35rem;
+}
+
+#syncView input {
+  max-width: 520px;
+}
+
+#syncView code {
+  word-break: break-all;
+}
+
+/* Stronger mobile behavior for new school-progress UI */
+@media (max-width: 760px) {
+  .class-progress-form {
+    padding: .8rem;
+  }
+
+  .class-progress-item {
+    grid-template-columns: 1fr;
+  }
+
+  .class-progress-item .button-row {
+    justify-content: stretch;
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .class-progress-item .button-row > * {
+    width: 100%;
+  }
+
+  #syncView input {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .class-progress-item {
+    padding: .8rem;
+  }
+
+  .class-progress-item small {
+    display: grid;
+    gap: .2rem;
+  }
+}
