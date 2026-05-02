@@ -40,9 +40,9 @@
       <nav class="tabs" aria-label="Study Compiler 탭">
         <button class="tab active" data-tab="dashboard">오늘의 빌드</button>
         <button class="tab" data-tab="subject">과목/범위</button>
+        <button class="tab" data-tab="classProgress">학교 진도</button>
         <button class="tab" data-tab="ai">AI 설계</button>
         <button class="tab" data-tab="performance">수행평가</button>
-        <button class="tab" data-tab="schedule">요일 시간표</button>
         <button class="tab" data-tab="calendar">캘린더</button>
         <button class="tab" data-tab="data">데이터</button>
         <button class="tab" data-tab="sync">동기화</button>
@@ -56,7 +56,7 @@
                 <p class="eyebrow">Daily Build</p>
                 <h2>오늘의 빌드</h2>
               </div>
-              <input id="buildDate" name="buildDate" type="date" />
+              <input id="buildDate" type="date" />
             </div>
             <div id="todayBuild" class="task-list"></div>
           </section>
@@ -79,28 +79,25 @@
             <p class="eyebrow">Subject Setup</p>
             <h2>과목 설정</h2>
             <form id="subjectForm" class="form-stack">
-              <input type="hidden" id="subjectId" name="subjectId" />
-              <label for="subjectName">과목명</label><input id="subjectName" name="subjectName" type="text" placeholder="예: 수학" required />
-              <label for="examDate">시험일</label><input id="examDate" name="examDate" type="date" required />
-              <label for="examDateStatus">시험일 상태</label>
-              <select id="examDateStatus" name="examDateStatus">
-                <option value="unknown">미정</option>
-                <option value="estimated">예상</option>
-                <option value="confirmed">확정</option>
-              </select>
-              <label for="provisionalExamDate">예상 시험일</label><input id="provisionalExamDate" name="provisionalExamDate" type="date" />
-              <label for="examWindowStart">시험기간 시작</label><input id="examWindowStart" name="examWindowStart" type="date" />
-              <label for="examWindowEnd">시험기간 종료</label><input id="examWindowEnd" name="examWindowEnd" type="date" />
-              <label for="subjectType">과목 유형</label>
-                <select id="subjectType" name="subjectType">
+              <input type="hidden" id="subjectId" />
+              <label>과목명<input id="subjectName" type="text" placeholder="예: 수학" required /></label>
+              <label>시험일<input id="examDate" type="date" required /></label>
+              <label>과목 유형
+                <select id="subjectType">
                   <option value="problem">문제풀이형</option>
                   <option value="memory">암기형</option>
                   <option value="code">정보/코드형</option>
                   <option value="mixed">혼합형</option>
                 </select>
-              <label for="dailyMinutes">하루 가능 시간(분)</label><input id="dailyMinutes" name="dailyMinutes" type="number" min="10" step="10" value="120" />
-              <label for="studyFinishBufferDays">정규 진도 마감 버퍼(시험 N일 전)</label><input id="studyFinishBufferDays" name="studyFinishBufferDays" type="number" min="0" max="30" step="1" value="7" />
-              <label class="inline-check" for="allowRegularStudyOnExamDay"><input id="allowRegularStudyOnExamDay" name="allowRegularStudyOnExamDay" type="checkbox" /> 시험 당일에도 정규 진도 허용</label>
+              </label>
+              <label>계획 방식
+                <select id="planningMode" name="planningMode">
+                  <option value="examRange">시험범위 확정형</option>
+                  <option value="classProgress">학교 진도 추적형</option>
+                  <option value="mixed">혼합형</option>
+                </select>
+              </label>
+              <label>하루 가능 시간(분)<input id="dailyMinutes" type="number" min="10" step="10" value="120" /></label>
               <button type="submit">과목 저장</button>
             </form>
           </section>
@@ -109,7 +106,7 @@
             <p class="eyebrow">Versions</p>
             <h2>교재 버전 입력</h2>
             <p class="hint">한 줄에 하나씩 입력하세요. 예: <code>v0: 개념서</code></p>
-            <textarea id="versionsInput" name="versionsInput" rows="9"></textarea>
+            <textarea id="versionsInput" rows="9"></textarea>
             <button id="saveVersionsBtn">버전 저장</button>
           </section>
         </div>
@@ -118,13 +115,17 @@
           <p class="eyebrow">Curriculum Tree</p>
           <h2>시험범위 트리 입력</h2>
           <p class="hint"><code>ㄴ</code> 개수 또는 들여쓰기로 계층을 표현할 수 있습니다.</p>
-          <textarea id="curriculumInput" name="curriculumInput" rows="12" placeholder="지수와 로그\nㄴ 지수\nㄴㄴ 거듭제곱근\nㄴㄴ 지수의 성질"></textarea>
+          <textarea id="curriculumInput" rows="12" placeholder="지수와 로그\nㄴ 지수\nㄴㄴ 거듭제곱근\nㄴㄴ 지수의 성질"></textarea>
           <div class="button-row">
             <button id="parseCurriculumBtn">트리 저장</button>
             <button id="generateTasksBtn" class="accent">태스크 생성/재생성</button>
           </div>
           <div id="curriculumPreview" class="tree-preview"></div>
         </section>
+      </section>
+
+      <section id="classProgressTab" class="tab-panel">
+        <div id="classProgressView"></div>
       </section>
 
       <section id="aiTab" class="tab-panel">
@@ -158,10 +159,10 @@
             <p class="eyebrow">Performance Assessment</p>
             <h2>수행평가 입력</h2>
             <form id="performanceForm" class="form-stack">
-              <label for="performanceSubject">과목</label><select id="performanceSubject" name="performanceSubject"></select>
-              <label for="performanceTitle">수행평가명</label><input id="performanceTitle" name="performanceTitle" type="text" placeholder="예: 법 보고서" required />
-              <label for="performanceDue">마감일</label><input id="performanceDue" name="performanceDue" type="date" required />
-              <label for="performanceMemo">메모</label><textarea id="performanceMemo" name="performanceMemo" rows="4" placeholder="조건, 제출 형식, 선생님 강조사항 등"></textarea>
+              <label>과목<select id="performanceSubject"></select></label>
+              <label>수행평가명<input id="performanceTitle" type="text" placeholder="예: 법 보고서" required /></label>
+              <label>마감일<input id="performanceDue" type="date" required /></label>
+              <label>메모<textarea id="performanceMemo" rows="4" placeholder="조건, 제출 형식, 선생님 강조사항 등"></textarea></label>
               <button type="submit">수행평가 추가</button>
             </form>
           </section>
@@ -173,15 +174,6 @@
         </div>
       </section>
 
-      <section id="scheduleTab" class="tab-panel">
-        <section class="card">
-          <p class="eyebrow">Weekly Constraints</p>
-          <h2>요일별 공부 시간표</h2>
-          <p class="hint">요일마다 공부 가능한 시간대와 가능한 과목을 정하면, 태스크가 그 조건에 맞춰 다시 배치됩니다.</p>
-        </section>
-        <div id="scheduleSettingsView"></div>
-      </section>
-
       <section id="calendarTab" class="tab-panel">
         <section class="card">
           <div class="section-title-row">
@@ -189,7 +181,7 @@
               <p class="eyebrow">Calendar</p>
               <h2>한눈에 보는 월간 캘린더</h2>
             </div>
-            <input id="calendarMonth" name="calendarMonth" type="month" />
+            <input id="calendarMonth" type="month" />
           </div>
           <div id="calendarView" class="calendar-view"></div>
         </section>
