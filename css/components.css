@@ -144,10 +144,19 @@ select[multiple] option { padding: .45rem .5rem; border-radius: .55rem; }
 .task-meta { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .5rem; color: var(--muted); font-size: .77rem; }
 .task-metrics {
   display: grid;
-  grid-template-columns: repeat(4, minmax(130px, 1fr));
-  gap: .55rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .55rem .75rem;
   padding-top: .65rem;
   border-top: 1px dashed var(--line);
+}
+
+.task-metrics label {
+  min-width: 0;
+}
+
+.task-metric {
+  width: 100%;
+  min-width: 0;
 }
 .task-metrics label { font-size: .72rem; }
 .task-metric { min-height: 2.35rem; padding: .55rem .65rem; border-radius: .8rem; font-size: .82rem; }
