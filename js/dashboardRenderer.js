@@ -25,7 +25,7 @@ export function renderQuickStats(state, selectedDate = todayISO()) {
   const pending = todayTasks.length - done;
   const subjects = state.subjects.length;
   const performances = state.performanceItems.filter(item => item.stages?.some(stage => stage.status !== "done")).length;
-  const reviewCount = state.tasks.filter(task => task.type === "review" && task.status !== "done").length;
+  const reviewCount = state.tasks.filter(task => (task.type === "review" || task.type === "classReview") && task.status !== "done").length;
   const patchCount = state.tasks.filter(task => task.type === "patch" && task.status !== "done").length;
   const unscheduledCount = state.tasks.filter(task => task.status === "unscheduled").length;
   return `
@@ -141,7 +141,7 @@ export function renderPerformanceSubjectOptions(subjects) {
 }
 
 function renderCalendarTask(task) {
-  const typeClass = task.type === "patch" ? "patch" : task.type === "review" ? "review" : task.status === "unscheduled" ? "danger" : "";
+  const typeClass = task.type === "patch" ? "patch" : (task.type === "review" || task.type === "classReview") ? "review" : task.status === "unscheduled" ? "danger" : "";
   return `<div class="calendar-task ${typeClass}">${escapeHTML(task.versionId || task.type)} · ${escapeHTML(task.conceptTitle || task.title)}</div>`;
 }
 

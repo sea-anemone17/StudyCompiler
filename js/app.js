@@ -18,6 +18,7 @@ import { renderTreeHTML, curriculumToText } from "./curriculumParser.js";
 import { versionsToText } from "./versionEngine.js";
 import { renderSync } from "./renderSync.js";
 import { renderScheduleSettings } from "./ui/renderScheduleSettings.js";
+import { renderClassProgress } from "./ui/renderClassProgress.js";
 import { scheduleAllPending } from "./planner/planner.js";
 
 let state = scheduleAllPending(loadState());
@@ -38,6 +39,7 @@ function render() {
   if ($("#calendarMonth") && !$("#calendarMonth").value) $("#calendarMonth").value = selectedDate.slice(0, 7);
   if ($("#syncView")) renderSync($("#syncView"));
   if ($("#scheduleSettingsView")) renderScheduleSettings($("#scheduleSettingsView"), state);
+  if ($("#classProgressView")) renderClassProgress($("#classProgressView"), state);
   if ($("#subjectList")) $("#subjectList").innerHTML = renderSubjectList(state);
   if ($("#quickStats")) $("#quickStats").innerHTML = renderQuickStats(state, selectedDate);
   if ($("#todayBuild")) $("#todayBuild").innerHTML = renderTodayBuild(state, selectedDate);
@@ -58,6 +60,7 @@ function fillActiveSubjectForm(subject) {
     if ($("#subjectName")) $("#subjectName").value = "";
     if ($("#examDate")) $("#examDate").value = todayISO();
     if ($("#subjectType")) $("#subjectType").value = "problem";
+    if ($("#planningMode")) $("#planningMode").value = "examRange";
     if ($("#dailyMinutes")) $("#dailyMinutes").value = 120;
     if ($("#studyFinishBufferDays")) $("#studyFinishBufferDays").value = 7;
     if ($("#versionsInput")) $("#versionsInput").value = "v0: 개념서\nv1: 기본 유형서\nv2: 중난도 유형서\nv3: 심화서";
@@ -75,6 +78,7 @@ function fillActiveSubjectForm(subject) {
   if ($("#studyFinishBufferDays")) $("#studyFinishBufferDays").value = subject.studyFinishBufferDays ?? 7;
   if ($("#allowRegularStudyOnExamDay")) $("#allowRegularStudyOnExamDay").checked = Boolean(subject.allowRegularStudyOnExamDay);
   if ($("#subjectType")) $("#subjectType").value = subject.type || "problem";
+  if ($("#planningMode")) $("#planningMode").value = subject.planningMode || "examRange";
   if ($("#dailyMinutes")) $("#dailyMinutes").value = subject.dailyMinutes || 120;
   if ($("#versionsInput")) $("#versionsInput").value = versionsToText(subject.versions || []);
   if ($("#curriculumInput")) $("#curriculumInput").value = curriculumToText(subject.curriculum || []);

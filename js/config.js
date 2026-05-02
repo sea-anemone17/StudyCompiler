@@ -4,8 +4,8 @@ export const APP_VERSION = "v4.0-planner";
 
 // GitHub Pages 같은 정적 사이트에서는 publishable/anon key가 브라우저에 보입니다.
 // 데이터 보호는 Supabase RLS 정책으로 해야 하며, service_role/secret key는 절대 넣지 마세요.
-export const SUPABASE_URL = "https://lkhsvubyqchiiekjutyo.supabase.co"; // Supabase project URL
-export const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxraHN2dWJ5cWNoaWlla2p1dHlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczNTg5MDksImV4cCI6MjA5MjkzNDkwOX0.A0BYUf7iShHV0lbaiil3eA7iAQheiIzQ_ANuCvxy_tM"; // anon/publishable key
+export const SUPABASE_URL = ""; // 예: "https://xxxxx.supabase.co"
+export const SUPABASE_PUBLISHABLE_KEY = ""; // 예: "sb_publishable_..." 또는 anon public key
 
 export const DEFAULT_VERSIONS_TEXT = `v0: 개념서
 v1: 기본 유형서
@@ -79,4 +79,42 @@ export const UNDERSTANDING_STAGE_OPTIONS = [
   { value: "sameType", label: "같은 유형 혼자 가능" },
   { value: "variant", label: "변형 문제도 가능" },
   { value: "teach", label: "남에게 설명 가능" }
+];
+
+
+export const PLANNING_MODES = {
+  examRange: "시험범위 확정형",
+  classProgress: "학교 진도 추적형",
+  mixed: "혼합형"
+};
+
+export const CLASS_PROGRESS_TYPES = {
+  lesson: "수업 내용",
+  text: "본문/지문",
+  grammar: "어법/문법",
+  vocab: "어휘",
+  literature: "문학",
+  reading: "비문학/독해",
+  problem: "문제풀이",
+  note: "필기/강조점"
+};
+
+export const TEACHER_SIGNAL_OPTIONS = {
+  low: "낮음",
+  medium: "보통",
+  high: "높음",
+  critical: "매우 높음"
+};
+
+export const EXAM_LIKELIHOOD_OPTIONS = {
+  unknown: "모름",
+  low: "낮음",
+  likely: "높음",
+  confirmed: "범위 포함 확정"
+};
+
+export const CLASS_REVIEW_RULES = [
+  { id: "C0", label: "당일 복습", offsetDays: 0, estimatedMinutes: 15 },
+  { id: "C2", label: "2일 뒤 재복습", offsetDays: 2, estimatedMinutes: 15 },
+  { id: "C7", label: "7일 뒤 회독", offsetDays: 7, estimatedMinutes: 20 }
 ];

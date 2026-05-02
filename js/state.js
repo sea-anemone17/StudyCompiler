@@ -9,6 +9,7 @@ export function createEmptyState() {
     subjects: [],
     tasks: [],
     performanceItems: [],
+    classProgress: [],
     weeklyAvailability: createDefaultWeeklyAvailability(),
     dateOverrides: {},
     durationProfiles: {},
