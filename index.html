@@ -3,20 +3,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Study Compiler v3.5</title>
+  <title>Study Compiler v4.2</title>
   <link rel="stylesheet" href="./css/style.css" />
   <link rel="icon" type="image/png" href="./favicon.png">
 </head>
 <body>
   <header class="app-header">
     <div>
-      <p class="eyebrow">Study Compiler v3.5</p>
+      <p class="eyebrow">Study Compiler v4.2</p>
       <h1>오늘의 공부를 빌드하세요</h1>
-      <p class="subtitle">시험범위 → 버전 태스크 → D-day 자동 분배 → 복습/오답 패치 → 자동 재편성 → 캘린더. 수행평가도 p0~p4로 관리합니다.</p>
+      <p class="subtitle">학교 진도 · 시험범위 · 요일별 시간표 · 복습/패치를 함께 관리해 시험 7일 전까지 정규 진도를 끝내는 개인용 공부 운영 앱입니다.</p>
     </div>
     <div class="header-actions">
       <button id="exportBtn" class="ghost">백업 내보내기</button>
-      <label class="ghost file-label">백업 가져오기<input id="importFile" type="file" accept="application/json" hidden /></label>
+      <label class="ghost file-label" for="importFile">백업 가져오기<input id="importFile" name="importFile" type="file" accept="application/json" hidden /></label>
     </div>
   </header>
 
@@ -25,7 +25,7 @@
       <section class="card compact">
         <div class="section-title-row">
           <h2>과목</h2>
-          <button id="newSubjectBtn" class="mini">+ 추가</button>
+          <button id="newSubjectBtn" class="mini" type="button">+ 추가</button>
         </div>
         <div id="subjectList" class="subject-list"></div>
       </section>
@@ -38,14 +38,15 @@
 
     <section class="workspace">
       <nav class="tabs" aria-label="Study Compiler 탭">
-        <button class="tab active" data-tab="dashboard">오늘의 빌드</button>
-        <button class="tab" data-tab="subject">과목/범위</button>
-        <button class="tab" data-tab="classProgress">학교 진도</button>
-        <button class="tab" data-tab="ai">AI 설계</button>
-        <button class="tab" data-tab="performance">수행평가</button>
-        <button class="tab" data-tab="calendar">캘린더</button>
-        <button class="tab" data-tab="data">데이터</button>
-        <button class="tab" data-tab="sync">동기화</button>
+        <button class="tab active" data-tab="dashboard" type="button">오늘의 빌드</button>
+        <button class="tab" data-tab="subject" type="button">과목/범위</button>
+        <button class="tab" data-tab="classProgress" type="button">학교 진도</button>
+        <button class="tab" data-tab="schedule" type="button">요일 시간표</button>
+        <button class="tab" data-tab="ai" type="button">AI 설계</button>
+        <button class="tab" data-tab="performance" type="button">수행평가</button>
+        <button class="tab" data-tab="calendar" type="button">캘린더</button>
+        <button class="tab" data-tab="data" type="button">데이터</button>
+        <button class="tab" data-tab="sync" type="button">동기화</button>
       </nav>
 
       <section id="dashboardTab" class="tab-panel active">
@@ -56,7 +57,8 @@
                 <p class="eyebrow">Daily Build</p>
                 <h2>오늘의 빌드</h2>
               </div>
-              <input id="buildDate" type="date" />
+              <label class="sr-only" for="buildDate">오늘의 빌드 날짜</label>
+              <input id="buildDate" name="buildDate" type="date" />
             </div>
             <div id="todayBuild" class="task-list"></div>
           </section>
@@ -79,25 +81,56 @@
             <p class="eyebrow">Subject Setup</p>
             <h2>과목 설정</h2>
             <form id="subjectForm" class="form-stack">
-              <input type="hidden" id="subjectId" />
-              <label>과목명<input id="subjectName" type="text" placeholder="예: 수학" required /></label>
-              <label>시험일<input id="examDate" type="date" required /></label>
-              <label>과목 유형
-                <select id="subjectType">
-                  <option value="problem">문제풀이형</option>
-                  <option value="memory">암기형</option>
-                  <option value="code">정보/코드형</option>
-                  <option value="mixed">혼합형</option>
-                </select>
+              <input type="hidden" id="subjectId" name="subjectId" />
+
+              <label for="subjectName">과목명</label>
+              <input id="subjectName" name="subjectName" type="text" placeholder="예: 수학" required />
+
+              <label for="examDate">시험일</label>
+              <input id="examDate" name="examDate" type="date" required />
+
+              <label for="examDateStatus">시험일 상태</label>
+              <select id="examDateStatus" name="examDateStatus">
+                <option value="unknown">미정</option>
+                <option value="estimated">예상</option>
+                <option value="confirmed">확정</option>
+              </select>
+
+              <label for="provisionalExamDate">예상 시험일</label>
+              <input id="provisionalExamDate" name="provisionalExamDate" type="date" />
+
+              <label for="examWindowStart">시험기간 시작</label>
+              <input id="examWindowStart" name="examWindowStart" type="date" />
+
+              <label for="examWindowEnd">시험기간 종료</label>
+              <input id="examWindowEnd" name="examWindowEnd" type="date" />
+
+              <label for="subjectType">과목 유형</label>
+              <select id="subjectType" name="subjectType">
+                <option value="problem">문제풀이형</option>
+                <option value="memory">암기형</option>
+                <option value="code">정보/코드형</option>
+                <option value="mixed">혼합형</option>
+              </select>
+
+              <label for="planningMode">계획 방식</label>
+              <select id="planningMode" name="planningMode">
+                <option value="examRange">시험범위 확정형</option>
+                <option value="classProgress">학교 진도 추적형</option>
+                <option value="mixed">혼합형</option>
+              </select>
+
+              <label for="dailyMinutes">하루 가능 시간(분)</label>
+              <input id="dailyMinutes" name="dailyMinutes" type="number" min="10" step="10" value="120" />
+
+              <label for="studyFinishBufferDays">정규 진도 마감 버퍼(시험 N일 전)</label>
+              <input id="studyFinishBufferDays" name="studyFinishBufferDays" type="number" min="0" max="30" step="1" value="7" />
+
+              <label class="inline-check" for="allowRegularStudyOnExamDay">
+                <input id="allowRegularStudyOnExamDay" name="allowRegularStudyOnExamDay" type="checkbox" />
+                시험 당일에도 정규 진도 허용
               </label>
-              <label>계획 방식
-                <select id="planningMode" name="planningMode">
-                  <option value="examRange">시험범위 확정형</option>
-                  <option value="classProgress">학교 진도 추적형</option>
-                  <option value="mixed">혼합형</option>
-                </select>
-              </label>
-              <label>하루 가능 시간(분)<input id="dailyMinutes" type="number" min="10" step="10" value="120" /></label>
+
               <button type="submit">과목 저장</button>
             </form>
           </section>
@@ -106,19 +139,21 @@
             <p class="eyebrow">Versions</p>
             <h2>교재 버전 입력</h2>
             <p class="hint">한 줄에 하나씩 입력하세요. 예: <code>v0: 개념서</code></p>
-            <textarea id="versionsInput" rows="9"></textarea>
-            <button id="saveVersionsBtn">버전 저장</button>
+            <label class="sr-only" for="versionsInput">교재 버전 입력</label>
+            <textarea id="versionsInput" name="versionsInput" rows="9"></textarea>
+            <button id="saveVersionsBtn" type="button">버전 저장</button>
           </section>
         </div>
 
         <section class="card">
           <p class="eyebrow">Curriculum Tree</p>
           <h2>시험범위 트리 입력</h2>
-          <p class="hint"><code>ㄴ</code> 개수 또는 들여쓰기로 계층을 표현할 수 있습니다.</p>
-          <textarea id="curriculumInput" rows="12" placeholder="지수와 로그\nㄴ 지수\nㄴㄴ 거듭제곱근\nㄴㄴ 지수의 성질"></textarea>
+          <p class="hint"><code>ㄴ</code> 개수 또는 들여쓰기로 계층을 표현할 수 있습니다. 학교 진도 추적형 과목은 비워 두고 학교 진도 탭만 써도 됩니다.</p>
+          <label class="sr-only" for="curriculumInput">시험범위 트리 입력</label>
+          <textarea id="curriculumInput" name="curriculumInput" rows="12" placeholder="지수와 로그\nㄴ 지수\nㄴㄴ 거듭제곱근\nㄴㄴ 지수의 성질"></textarea>
           <div class="button-row">
-            <button id="parseCurriculumBtn">트리 저장</button>
-            <button id="generateTasksBtn" class="accent">태스크 생성/재생성</button>
+            <button id="parseCurriculumBtn" type="button">트리 저장</button>
+            <button id="generateTasksBtn" type="button" class="accent">태스크 생성/재생성</button>
           </div>
           <div id="curriculumPreview" class="tree-preview"></div>
         </section>
@@ -128,25 +163,36 @@
         <div id="classProgressView"></div>
       </section>
 
+      <section id="scheduleTab" class="tab-panel">
+        <section class="card">
+          <p class="eyebrow">Weekly Constraints</p>
+          <h2>요일별 공부 시간표</h2>
+          <p class="hint">요일마다 공부 가능한 시간대와 가능한 과목을 정하면, 태스크가 그 조건에 맞춰 다시 배치됩니다. 가능 과목을 비워 두면 전 과목 가능으로 처리됩니다.</p>
+        </section>
+        <div id="scheduleSettingsView"></div>
+      </section>
+
       <section id="aiTab" class="tab-panel">
         <div class="grid two">
           <section class="card">
             <p class="eyebrow">Prompt Helper</p>
             <h2>AI 설계 프롬프트 생성</h2>
             <p class="hint">현재 선택한 과목의 범위와 버전을 바탕으로 JSON 설계안을 요청하는 프롬프트를 만듭니다.</p>
-            <button id="buildPromptBtn">프롬프트 만들기</button>
-            <textarea id="aiPromptOutput" rows="18" readonly></textarea>
-            <button id="copyPromptBtn" class="ghost">프롬프트 복사</button>
+            <button id="buildPromptBtn" type="button">프롬프트 만들기</button>
+            <label class="sr-only" for="aiPromptOutput">AI 프롬프트 출력</label>
+            <textarea id="aiPromptOutput" name="aiPromptOutput" rows="18" readonly></textarea>
+            <button id="copyPromptBtn" type="button" class="ghost">프롬프트 복사</button>
           </section>
 
           <section class="card">
             <p class="eyebrow">JSON Import</p>
             <h2>AI JSON 붙여넣기 및 검토</h2>
             <p class="hint">AI가 만든 JSON을 붙여넣으면 과목/트리/버전으로 변환합니다. 적용 전 검토 결과가 표시됩니다.</p>
-            <textarea id="aiJsonInput" rows="18" placeholder='{"subject":"수학", "curriculumTree": [...]}'></textarea>
+            <label class="sr-only" for="aiJsonInput">AI JSON 입력</label>
+            <textarea id="aiJsonInput" name="aiJsonInput" rows="18" placeholder='{"subject":"수학", "curriculumTree": [...]}'></textarea>
             <div class="button-row">
-              <button id="validateJsonBtn">검토</button>
-              <button id="applyJsonBtn" class="accent">적용</button>
+              <button id="validateJsonBtn" type="button">검토</button>
+              <button id="applyJsonBtn" type="button" class="accent">적용</button>
             </div>
             <div id="jsonReview" class="review-box"></div>
           </section>
@@ -159,10 +205,18 @@
             <p class="eyebrow">Performance Assessment</p>
             <h2>수행평가 입력</h2>
             <form id="performanceForm" class="form-stack">
-              <label>과목<select id="performanceSubject"></select></label>
-              <label>수행평가명<input id="performanceTitle" type="text" placeholder="예: 법 보고서" required /></label>
-              <label>마감일<input id="performanceDue" type="date" required /></label>
-              <label>메모<textarea id="performanceMemo" rows="4" placeholder="조건, 제출 형식, 선생님 강조사항 등"></textarea></label>
+              <label for="performanceSubject">과목</label>
+              <select id="performanceSubject" name="performanceSubject"></select>
+
+              <label for="performanceTitle">수행평가명</label>
+              <input id="performanceTitle" name="performanceTitle" type="text" placeholder="예: 법 보고서" required />
+
+              <label for="performanceDue">마감일</label>
+              <input id="performanceDue" name="performanceDue" type="date" required />
+
+              <label for="performanceMemo">메모</label>
+              <textarea id="performanceMemo" name="performanceMemo" rows="4" placeholder="조건, 제출 형식, 선생님 강조사항 등"></textarea>
+
               <button type="submit">수행평가 추가</button>
             </form>
           </section>
@@ -181,7 +235,8 @@
               <p class="eyebrow">Calendar</p>
               <h2>한눈에 보는 월간 캘린더</h2>
             </div>
-            <input id="calendarMonth" type="month" />
+            <label class="sr-only" for="calendarMonth">캘린더 월</label>
+            <input id="calendarMonth" name="calendarMonth" type="month" />
           </div>
           <div id="calendarView" class="calendar-view"></div>
         </section>
@@ -193,11 +248,11 @@
           <h2>데이터 관리</h2>
           <p>모든 데이터는 브라우저의 localStorage에 저장됩니다.</p>
           <div class="button-row">
-            <button id="seedDemoBtn">샘플 데이터 넣기</button>
-            <button id="generateReviewPatchBtn" class="accent">복습/패치 일괄 생성</button>
-            <button id="previewRebuildBtn">재빌드 미리보기</button>
-            <button id="applyRebuildBtn" class="accent">재빌드 적용</button>
-            <button id="resetBtn" class="danger">전체 초기화</button>
+            <button id="seedDemoBtn" type="button">샘플 데이터 넣기</button>
+            <button id="generateReviewPatchBtn" type="button" class="accent">복습/패치 일괄 생성</button>
+            <button id="previewRebuildBtn" type="button">재빌드 미리보기</button>
+            <button id="applyRebuildBtn" type="button" class="accent">재빌드 적용</button>
+            <button id="resetBtn" type="button" class="danger">전체 초기화</button>
           </div>
           <div id="capacityWarnings" class="review-box"></div>
           <div id="rebuildPreview" class="review-box"></div>
@@ -212,12 +267,11 @@
           <div id="syncView"></div>
         </section>
       </section>
-      
     </section>
   </main>
 
   <template id="emptyStateTemplate">
-    <div class="empty-state">아직 데이터가 없습니다. 과목/범위를 입력해 주세요.</div>
+    <div class="empty-state">아직 데이터가 없습니다. 과목/범위 또는 학교 진도를 입력해 주세요.</div>
   </template>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
