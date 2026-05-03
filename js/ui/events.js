@@ -396,6 +396,16 @@ export function bindEvents(context) {
     if (taskToggle) {
       const state = getState();
       const { taskId, taskType } = taskToggle.dataset;
+
+      if (taskType !== "performance") {
+        const task = state.tasks.find(item => item.id === taskId);
+
+        if (task?.progressMode !== "once") {
+          taskToggle.checked = task.status === "done";
+          toast("진행형 태스크는 진행 저장으로 관리합니다.");
+          return;
+        }
+      }
       if (taskType === "performance") {
         const [performanceId, stageId] = taskId.split("::");
         const item = state.performanceItems.find(perf => perf.id === performanceId);
