@@ -56,16 +56,23 @@
 .tabs {
   display: flex;
   align-items: center;
-  gap: .55rem;
+  gap: .45rem;
   margin-bottom: .95rem;
   padding: .35rem;
   overflow-x: auto;
+  overflow-y: hidden;
+  min-height: 3.35rem;
+  max-height: 3.35rem;
   border: 1px solid rgba(231, 218, 200, .86);
   border-radius: 999px;
-  background: rgba(255, 252, 246, .66);
+  background: rgba(255, 252, 246, .72);
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(12px);
-  scrollbar-width: thin;
+  scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .tab {
@@ -73,8 +80,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 2.75rem;
-  height: 2.75rem;
+  min-height: 2.55rem;
+  height: 2.55rem;
   padding: 0 .95rem;
   border: 0;
   border-radius: 999px;
