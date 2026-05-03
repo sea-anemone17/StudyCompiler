@@ -22,7 +22,18 @@ export function replanSubject(state, subjectId, options = {}) {
   normalizeStateForPlanning(state);
   const subject = state.subjects.find(item => item.id === subjectId);
   if (!subject) return state;
-  if (!subject.curriculum?.length || !subject.versions?.length) {
+  if (!subject.curriculum?.length || !subject.versions?.length || subject.planningMode === "classProgress") {
+    state.tasks = (state.tasks || []).filter(task => {
+      if (task.subjectId !== subjectId) return true;
+      if (task.manual === true) return true;
+      if (task.status === "done") return true;
+      return task.type !== "study";
+    });
+
+    syncClassProgressTasks(state);
+    attachFollowups(state);
+    subject.planUpdatedAt = new Date().toISOString();
+    subject.planFingerprint = createSubjectPlanFingerprint(subject);
     return scheduleAllPending(state, options);
   }
 
@@ -50,7 +61,15 @@ export function replanAll(state, options = {}) {
   const subjectIds = (state.subjects || []).map(subject => subject.id);
   for (const subjectId of subjectIds) {
     const subject = state.subjects.find(item => item.id === subjectId);
-    if (!subject?.curriculum?.length || !subject?.versions?.length) continue;
+    if (!subject?.curriculum?.length || !subject?.versions?.length || subject.planningMode === "classProgress") {
+      state.tasks = (state.tasks || []).filter(task => {
+        if (task.subjectId !== subjectId) return true;
+        if (task.manual === true) return true;
+        if (task.status === "done") return true;
+        return task.type !== "study";
+      });
+      continue;
+    }
     const oldSubjectTasks = (state.tasks || []).filter(task => task.subjectId === subjectId && task.type === "study");
     const generated = generateStudyTasksForSubject(subject, { schedule: false });
     const preserved = preserveTaskProgress(generated, oldSubjectTasks);
