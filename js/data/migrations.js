@@ -62,6 +62,12 @@ export function migrateTask(task = {}) {
     scheduledStart: task.scheduledStart || null,
     scheduledEnd: task.scheduledEnd || null,
     unscheduledReason: task.unscheduledReason || null,
+    progressMode: task.progressMode || "once",
+    progressUnit: task.progressUnit || "",
+    targetAmount: task.targetAmount ?? null,
+    completedAmount: Number(task.completedAmount || 0),
+    sessionLogs: Array.isArray(task.sessionLogs) ? task.sessionLogs : [],
+    nextDate: task.nextDate || task.scheduledDate || null,
     ...task,
     schedulerVersion: task.schedulerVersion || "legacy"
   };
