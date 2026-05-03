@@ -10,6 +10,7 @@ import { exportState, importStateFromFile, clearState } from "../data/storage.js
 import { createRebuildPreview, applyRebuildPlan, recordTaskCompletionAndReplan } from "../planner/rescheduleEngine.js";
 import { replanSubject, replanAll, scheduleAllPending, attachFollowups } from "../planner/planner.js";
 import { applyOutcomeToTask } from "../core/scoreModel.js";
+import { recordDurationResult } from "../core/durationModel.js";
 import { renderScheduleSettings, readScheduleSettings, renderEmptyScheduleBlock } from "./renderScheduleSettings.js";
 import { upsertClassProgress, removeClassProgress, toggleClassProgressExamRange } from "../planner/classProgressPlanner.js";
 
@@ -323,6 +324,15 @@ export function bindEvents(context) {
           amount: progressAmount,
           minutes: actualMinutes
         });
+
+        if (actualMinutes > 0) {
+          recordDurationResult(state, {
+            ...task,
+            actualMinutes,
+            estimatedMinutes: task.estimatedMinutes,
+            plannedMinutes: task.plannedMinutes
+          });
+        }
 
         if (task.targetAmount && task.completedAmount >= task.targetAmount) {
           task.status = "done";
