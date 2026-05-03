@@ -292,6 +292,54 @@ export function bindEvents(context) {
       toast("수행평가를 삭제했습니다.");
       return;
     }
+    const saveProgressBtn = event.target.closest(".save-progress-btn");
+      if (saveProgressBtn) {
+        const state = getState();
+        const task = state.tasks.find(item => item.id === saveProgressBtn.dataset.taskId);
+        if (!task) return;
+
+        const progressInput = document.querySelector(
+          `.task-metric[data-task-id="${task.id}"][data-field="progressAmount"]`
+        );
+
+        const nextDateInput = document.querySelector(
+          `.task-metric[data-task-id="${task.id}"][data-field="nextDate"]`
+        );
+
+        const actualInput = document.querySelector(
+          `.task-metric[data-task-id="${task.id}"][data-field="actualMinutes"]`
+        );
+
+        const progressAmount = Number(progressInput?.value || 0);
+        const actualMinutes = Number(actualInput?.value || 0);
+
+        task.completedAmount = Number(task.completedAmount || 0) + progressAmount;
+        task.actualMinutes = actualMinutes;
+        task.nextDate = nextDateInput?.value || task.nextDate;
+
+        task.sessionLogs = Array.isArray(task.sessionLogs) ? task.sessionLogs : [];
+        task.sessionLogs.push({
+          date: todayISO(),
+          amount: progressAmount,
+          minutes: actualMinutes
+        });
+
+        if (task.targetAmount && task.completedAmount >= task.targetAmount) {
+          task.status = "done";
+          task.completedAt = new Date().toISOString();
+        } else {
+          task.status = "inProgress";
+        }
+
+        const next = task.status === "done"
+          ? recordTaskCompletionAndReplan(state, task)
+          : scheduleAllPending(state);
+
+        setState(next);
+        render();
+        toast("진행률을 저장하고 다음 일정에 반영했습니다.");
+        return;
+      }
     const delayBtn = event.target.closest(".delay-task");
     if (delayBtn) {
       const state = getState();
