@@ -369,13 +369,27 @@ export function bindEvents(context) {
     if (metricInput) {
       const state = getState();
       const task = state.tasks.find(item => item.id === metricInput.dataset.taskId);
+
       if (task) {
-        applyOutcomeToTask(task, metricInput.dataset.field, metricInput.value);
-        const next = task.status === "done" ? recordTaskCompletionAndReplan(state, task) : scheduleAllPending(state);
+        const field = metricInput.dataset.field;
+
+        if (field === "nextDate") {
+          task.nextDate = metricInput.value;
+        } else if (field === "progressAmount") {
+          // 진행량은 '진행 저장' 버튼에서 누적 처리합니다.
+        } else {
+          applyOutcomeToTask(task, field, metricInput.value);
+        }
+
+        const next = task.status === "done"
+          ? recordTaskCompletionAndReplan(state, task)
+          : scheduleAllPending(state);
+
         setState(next);
         render();
         toast("학습 기록을 저장하고 시간을 보정했습니다.");
       }
+
       return;
     }
     const taskToggle = event.target.closest(".task-toggle");
