@@ -9,20 +9,42 @@
   .shell { grid-template-columns: 1fr; }
   .sidebar { position: static; }
   .quick-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .tabs { border-radius: 1.25rem; }
+  .tabs { border-radius: 1rem; }
 }
 
 @media (max-width: 760px) {
   .app-header,
-  .shell { padding-left: .85rem; padding-right: .85rem; }
+  .shell {
+    padding-left: .85rem;
+    padding-right: .85rem;
+  }
+
   .app-header { padding-top: 1rem; }
-  .card { border-radius: 1.15rem; padding: .95rem; }
-  .section-title-row { flex-direction: column; align-items: stretch; }
+
+  .card {
+    border-radius: 1rem;
+    padding: .95rem;
+  }
+
+  .section-title-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .section-title-row input,
   .section-title-row button { width: 100%; }
+
   .quick-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .tabs { gap: .4rem; padding: .32rem; }
-  .tab { padding: .6rem .8rem; font-size: .84rem; }
+
+  .tabs {
+    gap: .28rem;
+    padding: .25rem;
+  }
+
+  .tab {
+    padding: 0 .78rem;
+    font-size: .84rem;
+  }
 
   .week-grid {
     grid-template-columns: repeat(7, minmax(210px, 78vw));
@@ -39,21 +61,60 @@
   .calendar-day { min-height: auto; }
 
   .schedule-time-row,
-  .schedule-subject-row { grid-template-columns: 1fr; align-items: stretch; }
+  .schedule-subject-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
   .schedule-block .remove-schedule-block { width: 100%; }
+
   select[multiple] { min-height: 8.5rem; }
+
+  .class-progress-form {
+    padding: .8rem;
+  }
+
+  .class-progress-item {
+    grid-template-columns: 1fr;
+  }
+
+  .class-progress-item .button-row {
+    justify-content: stretch;
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .class-progress-item .button-row > * {
+    width: 100%;
+  }
 }
 
 @media (max-width: 560px) {
   h1 { font-size: 1.8rem; }
   .subtitle { font-size: .9rem; }
+
   .header-actions,
-  .button-row { display: grid; grid-template-columns: 1fr; }
+  .button-row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
   .header-actions > *,
   .button-row > * { width: 100%; }
+
   .quick-stats { grid-template-columns: 1fr; }
   .task-item { padding: .8rem; }
+  .task-meta { padding-left: 0; }
   .task-metrics { grid-template-columns: 1fr; }
   .performance-card button { width: 100%; }
   .toast { right: .75rem; bottom: .75rem; }
+
+  .class-progress-item {
+    padding: .8rem;
+  }
+
+  .class-progress-item small {
+    display: grid;
+    gap: .2rem;
+  }
 }
