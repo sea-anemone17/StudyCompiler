@@ -38,7 +38,8 @@ export const SCHEDULER_POLICY = {
   overflowToleranceMinutes: 5,
   durationLearningRate: 0.35,
   fallbackDailyMinutes: 120,
-  maxScheduleHorizonDays: 180
+  maxScheduleHorizonDays: 180,
+  maxPlacementIterationsPerDay: 1000
 };
 
 export const DEFAULT_WEEKLY_AVAILABILITY = [
