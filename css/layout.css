@@ -55,13 +55,14 @@
 
 .tabs {
   display: flex;
+  align-items: center;
   gap: .55rem;
   margin-bottom: .95rem;
   padding: .35rem;
   overflow-x: auto;
   border: 1px solid rgba(231, 218, 200, .86);
   border-radius: 999px;
-  background: rgba(255, 252, 246, .62);
+  background: rgba(255, 252, 246, .66);
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(12px);
   scrollbar-width: thin;
@@ -69,11 +70,19 @@
 
 .tab {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  height: 2.75rem;
+  padding: 0 .95rem;
   border: 0;
+  border-radius: 999px;
   background: transparent;
   color: var(--muted);
   box-shadow: none;
   white-space: nowrap;
+  line-height: 1;
 }
 
 .tab:hover { background: rgba(239, 228, 215, .86); color: var(--text); transform: none; }
