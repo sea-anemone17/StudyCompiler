@@ -72,6 +72,27 @@ Study Compiler v4는 단순히 “시험범위 입력 → D-day 분배”만 하
 
 `오늘의 빌드`, `이번 주 보기`, `캘린더`에서 배치 결과를 확인합니다.
 
+
+## v4.2 구조 정리 메모
+
+이번 구조에서는 기존의 큰 `js/ui/events.js`를 기능별 이벤트 모듈로 분리했습니다.
+
+```txt
+js/ui/events/
+  index.js
+  tabEvents.js
+  subjectEvents.js
+  aiEvents.js
+  performanceEvents.js
+  dataEvents.js
+  scheduleEvents.js
+  classProgressEvents.js
+  taskEvents.js
+  formUtils.js
+```
+
+이제 `js/app.js`는 `./ui/events/index.js`에서 이벤트 바인딩을 직접 가져옵니다. 기존 루트의 짧은 re-export 파일들은 정리 대상이어서 새 구조에서는 포함하지 않았습니다.
+
 ## 데이터 저장
 
 브라우저 `localStorage` 키는 기존 데이터 유지를 위해 다음 값을 사용합니다.
