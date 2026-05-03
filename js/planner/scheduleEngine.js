@@ -47,7 +47,7 @@ export function scheduleTasksForState(state, options = {}) {
   for (const [date, dayBlocks] of blocksByDate.entries()) {
     const dayTarget = dayTargets.get(date) || { targetMinutes: 0, maxPlannedMinutes: 0, capacityMinutes: getDayCapacity(dayBlocks) };
     let guard = 0;
-    while (guard < 500) {
+    while (guard < (SCHEDULER_POLICY.maxPlacementIterationsPerDay || 1000)) {
       guard += 1;
       const dayUsed = getDayUsed(dayBlocks);
       const urgent = hasUrgentCandidate(pending, satisfied, date, dayBlocks);
