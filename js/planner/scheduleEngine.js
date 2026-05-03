@@ -325,8 +325,22 @@ function getClassReviewGraceDays(task = {}) {
 }
 
 function getTaskEarliestDate(task, anchorDate) {
-  if (task.earliestDate) return task.earliestDate < anchorDate ? anchorDate : task.earliestDate;
-  if (task.scheduledDate && task.type !== "study") return task.scheduledDate < anchorDate ? anchorDate : task.scheduledDate;
+  if (task.progressMode !== "once" && task.nextDate) {
+    return task.nextDate < anchorDate ? anchorDate : task.nextDate;
+  }
+
+  if (task.status === "inProgress" && task.nextDate) {
+    return task.nextDate < anchorDate ? anchorDate : task.nextDate;
+  }
+
+  if (task.earliestDate) {
+    return task.earliestDate < anchorDate ? anchorDate : task.earliestDate;
+  }
+
+  if (task.scheduledDate && task.type !== "study") {
+    return task.scheduledDate < anchorDate ? anchorDate : task.scheduledDate;
+  }
+
   return anchorDate;
 }
 
