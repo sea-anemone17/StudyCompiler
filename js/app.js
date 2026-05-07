@@ -20,8 +20,13 @@ import { renderSync } from "./ui/renderSync.js";
 import { renderScheduleSettings } from "./ui/renderScheduleSettings.js";
 import { renderClassProgress } from "./ui/renderClassProgress.js";
 import { scheduleAllPending } from "./planner/planner.js";
+import { normalizePastUnresolvedTasks } from "./planner/taskRecovery.js";
 
-let state = scheduleAllPending(loadState());
+let loadedState = loadState();
+loadedState = normalizePastUnresolvedTasks(loadedState, todayISO());
+let state = scheduleAllPending(loadedState, { anchorDate: todayISO() });
+saveState(state);
+
 let latestRebuildPreview = null;
 
 function getState() { return state; }
@@ -51,6 +56,9 @@ function render() {
   if ($("#performanceSubject")) $("#performanceSubject").innerHTML = renderPerformanceSubjectOptions(state.subjects);
   if ($("#performanceList")) $("#performanceList").innerHTML = renderPerformanceList(state);
   if ($("#debugState")) $("#debugState").textContent = JSON.stringify(state, null, 2);
+  if ($("#recoveryPanel")) {
+    $("#recoveryPanel").innerHTML = renderRecoveryPanel(state);
+  }
   fillActiveSubjectForm(activeSubject);
 }
 
