@@ -22,7 +22,9 @@ export function renderQuickStats(state, selectedDate = todayISO()) {
   const weekDates = getWeekDates(selectedDate);
   const weekStudyCount = state.tasks.filter(task => task.status !== "deferred" && weekDates.includes(task.scheduledDate)).length;
   const done = todayTasks.filter(task => task.status === "done").length;
-  const pending = todayTasks.length - done;
+  const inProgress = todayTasks.filter(task => task.status === "inProgress").length;
+  const pending = todayTasks.filter(task => task.status !== "done").length;
+  const recoveryCount = state.tasks.filter(task => task.recoveryStatus === "needsReview").length;
   const subjects = state.subjects.length;
   const performances = state.performanceItems.filter(item => item.stages?.some(stage => stage.status !== "done")).length;
   const reviewCount = state.tasks.filter(task => (task.type === "review" || task.type === "classReview") && task.status !== "done").length;
@@ -33,6 +35,8 @@ export function renderQuickStats(state, selectedDate = todayISO()) {
     <div class="stat-card"><span>오늘 태스크</span><strong>${todayTasks.length}</strong></div>
     <div class="stat-card"><span>완료</span><strong>${done}</strong></div>
     <div class="stat-card"><span>남음</span><strong>${pending}</strong></div>
+    <div class="stat-card"><span>진행 중</span><strong>${inProgress}</strong></div>
+    <div class="stat-card"><span>기록 확인</span><strong>${recoveryCount}</strong></div>
     <div class="stat-card"><span>이번 주 학습</span><strong>${weekStudyCount}</strong></div>
     <div class="stat-card"><span>복습 대기</span><strong>${reviewCount}</strong></div>
     <div class="stat-card"><span>패치 대기</span><strong>${patchCount}</strong></div>
