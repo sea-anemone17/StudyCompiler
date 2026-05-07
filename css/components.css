@@ -409,3 +409,45 @@ select[multiple] option {
   padding: .85rem 1rem;
   box-shadow: var(--shadow);
 }
+
+.recovery-panel {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border-radius: 18px;
+  background: rgba(255, 248, 220, 0.7);
+  border: 1px solid rgba(180, 140, 60, 0.25);
+}
+
+.recovery-card {
+  margin-top: 0.75rem;
+  padding: 0.9rem;
+  border-radius: 14px;
+  background: var(--card-bg, #fff);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.task-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.7rem;
+}
+
+button.mini {
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+button.secondary {
+  opacity: 0.75;
+}
+
+.badge.status {
+  opacity: 0.85;
+}
+
+.done-label {
+  color: var(--muted, #777);
+  font-size: 0.9rem;
+}
