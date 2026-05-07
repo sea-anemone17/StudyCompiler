@@ -21,6 +21,7 @@ import { renderScheduleSettings } from "./ui/renderScheduleSettings.js";
 import { renderClassProgress } from "./ui/renderClassProgress.js";
 import { scheduleAllPending } from "./planner/planner.js";
 import { normalizePastUnresolvedTasks } from "./planner/taskRecovery.js";
+import { renderRecoveryPanel } from "./ui/renderTaskRecovery.js";
 
 let loadedState = loadState();
 loadedState = normalizePastUnresolvedTasks(loadedState, todayISO());
