@@ -25,7 +25,6 @@ export function renderTaskItem(task, { compact = false } = {}) {
       ${task.unscheduledReason ? `<div class="notice warn small">${escapeHTML(task.unscheduledReason)}</div>` : ""}
       ${compact ? "" : renderTaskActions(task)}
       ${compact ? "" : renderTaskMetrics(task)}
-      ${compact ? "" : renderTaskMetrics(task)}
     </article>
   `;
 }
