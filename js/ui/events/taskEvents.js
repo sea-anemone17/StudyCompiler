@@ -5,6 +5,8 @@ import { recordTaskCompletionAndReplan } from "../../planner/rescheduleEngine.js
 import { applyOutcomeToTask } from "../../core/scoreModel.js";
 import { recordDurationResult } from "../../core/durationModel.js";
 import { togglePerformanceStage } from "../../performanceScheduler.js";
+import { addDaysISO } from "../../core/dateUtils.js";
+import { resolveRecoveredTask } from "../../planner/taskRecovery.js";
 
 export function bindTaskEvents(context) {
   const { getState, setState, render } = context;
@@ -30,6 +32,30 @@ export function bindTaskEvents(context) {
       }
     }
   });
+
+  const startBtn = event.target.closest(".task-start");
+  if (startBtn) {
+    handleTaskStart({ button: startBtn, getState, setState, render });
+    return;
+  }
+
+  const finishBtn = event.target.closest(".task-finish");
+  if (finishBtn) {
+    handleTaskFinish({ button: finishBtn, getState, setState, render });
+    return;
+  }
+
+  const skipBtn = event.target.closest(".task-skip");
+  if (skipBtn) {
+    handleTaskSkip({ button: skipBtn, getState, setState, render });
+    return;
+  }
+
+  const recoverBtn = event.target.closest(".recover-task");
+  if (recoverBtn) {
+    handleRecoveryResolve({ button: recoverBtn, getState, setState, render });
+    return;
+  }
 
   document.addEventListener("change", event => {
     const metricInput = event.target.closest(".task-metric");
@@ -91,6 +117,100 @@ function handleSaveProgress({ button, getState, setState, render }) {
   setState(next);
   render();
   toast("진행률을 저장하고 다음 일정에 반영했습니다.");
+}
+
+function handleTaskStart({ button, getState, setState, render }) {
+  const state = getState();
+  const task = state.tasks.find(item => item.id === button.dataset.taskId);
+  if (!task) return;
+
+  const now = new Date().toISOString();
+
+  task.status = "inProgress";
+  task.startedAt = task.startedAt || now;
+  task.lastTouchedAt = now;
+
+  setState(scheduleAllPending(state, { anchorDate: todayISO() }));
+  render();
+  toast("태스크를 시작했습니다.");
+}
+
+function handleTaskFinish({ button, getState, setState, render }) {
+  const state = getState();
+  const task = state.tasks.find(item => item.id === button.dataset.taskId);
+  if (!task) return;
+
+  const result = button.dataset.result;
+  const now = new Date().toISOString();
+
+  task.endedAt = now;
+  task.lastTouchedAt = now;
+
+  if (result === "done") {
+    task.status = "done";
+    task.completedAt = now;
+    attachFollowups(state);
+    setState(recordTaskCompletionAndReplan(state, task));
+    render();
+    toast("완료 처리하고 복습/패치 일정을 반영했습니다.");
+    return;
+  }
+
+  if (result === "partial") {
+    task.status = "inProgress";
+    task.nextDate = addDaysISO(todayISO(), 1);
+    task.partialLogs = Array.isArray(task.partialLogs) ? task.partialLogs : [];
+    task.partialLogs.push({
+      date: todayISO(),
+      recordedAt: now,
+      note: "오늘 일부 완료"
+    });
+
+    setState(scheduleAllPending(state, { anchorDate: todayISO() }));
+    render();
+    toast("일부 완료로 저장하고 다음 일정에 반영했습니다.");
+  }
+}
+
+function handleTaskSkip({ button, getState, setState, render }) {
+  const state = getState();
+  const task = state.tasks.find(item => item.id === button.dataset.taskId);
+  if (!task) return;
+
+  const today = todayISO();
+
+  task.status = "pending";
+  task.scheduledDate = null;
+  task.scheduledBlockId = null;
+  task.scheduledStart = null;
+  task.scheduledEnd = null;
+
+  task.earliestDate = addDaysISO(today, 1);
+  task.skippedDates = Array.isArray(task.skippedDates) ? task.skippedDates : [];
+  task.skippedDates.push(today);
+  task.lastTouchedAt = new Date().toISOString();
+
+  setState(scheduleAllPending(state, { anchorDate: today }));
+  render();
+  toast("오늘 태스크를 다음 가능한 날짜로 넘겼습니다.");
+}
+
+function handleRecoveryResolve({ button, getState, setState, render }) {
+  const state = getState();
+  const task = state.tasks.find(item => item.id === button.dataset.taskId);
+  if (!task) return;
+
+  resolveRecoveredTask(task, button.dataset.result);
+
+  if (task.status === "done") {
+    attachFollowups(state);
+    setState(recordTaskCompletionAndReplan(state, task));
+  } else {
+    setState(scheduleAllPending(state, { anchorDate: todayISO() }));
+  }
+
+  render();
+  toast("누락 기록을 복구했습니다.");
 }
 
 function handleMetricChange({ input, getState, setState, render }) {
