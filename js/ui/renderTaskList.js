@@ -23,6 +23,8 @@ export function renderTaskItem(task, { compact = false } = {}) {
       </div>
       ${task.conceptPath?.length ? `<div class="muted small">${escapeHTML(task.conceptPath.join(" > "))}</div>` : ""}
       ${task.unscheduledReason ? `<div class="notice warn small">${escapeHTML(task.unscheduledReason)}</div>` : ""}
+      ${compact ? "" : renderTaskActions(task)}
+      ${compact ? "" : renderTaskMetrics(task)}
       ${compact ? "" : renderTaskMetrics(task)}
     </article>
   `;
@@ -142,6 +144,50 @@ export function renderTaskMetrics(task) {
         </button>
       ` : ""}
 
+    </div>
+  `;
+}
+
+function renderTaskActions(task) {
+  if (task.status === "done") {
+    return `<div class="task-actions done-label">완료됨</div>`;
+  }
+
+  return `
+    <div class="task-actions">
+      <button
+        type="button"
+        class="task-start mini"
+        data-task-id="${escapeHTML(task.id)}"
+      >
+        시작
+      </button>
+
+      <button
+        type="button"
+        class="task-finish mini"
+        data-task-id="${escapeHTML(task.id)}"
+        data-result="done"
+      >
+        완료
+      </button>
+
+      <button
+        type="button"
+        class="task-finish mini"
+        data-task-id="${escapeHTML(task.id)}"
+        data-result="partial"
+      >
+        조금 함
+      </button>
+
+      <button
+        type="button"
+        class="task-skip mini secondary"
+        data-task-id="${escapeHTML(task.id)}"
+      >
+        오늘 넘김
+      </button>
     </div>
   `;
 }
