@@ -18,6 +18,30 @@ export function bindTaskEvents(context) {
       return;
     }
 
+    const startBtn = event.target.closest(".task-start");
+    if (startBtn) {
+      handleTaskStart({ button: startBtn, getState, setState, render });
+      return;
+    }
+
+    const finishBtn = event.target.closest(".task-finish");
+    if (finishBtn) {
+      handleTaskFinish({ button: finishBtn, getState, setState, render });
+      return;
+    }
+
+    const skipBtn = event.target.closest(".task-skip");
+    if (skipBtn) {
+      handleTaskSkip({ button: skipBtn, getState, setState, render });
+      return;
+    }
+
+    const recoverBtn = event.target.closest(".recover-task");
+    if (recoverBtn) {
+      handleRecoveryResolve({ button: recoverBtn, getState, setState, render });
+      return;
+    }
+
     const delayBtn = event.target.closest(".delay-task");
     if (delayBtn) {
       const state = getState();
@@ -32,30 +56,6 @@ export function bindTaskEvents(context) {
       }
     }
   });
-
-  const startBtn = event.target.closest(".task-start");
-  if (startBtn) {
-    handleTaskStart({ button: startBtn, getState, setState, render });
-    return;
-  }
-
-  const finishBtn = event.target.closest(".task-finish");
-  if (finishBtn) {
-    handleTaskFinish({ button: finishBtn, getState, setState, render });
-    return;
-  }
-
-  const skipBtn = event.target.closest(".task-skip");
-  if (skipBtn) {
-    handleTaskSkip({ button: skipBtn, getState, setState, render });
-    return;
-  }
-
-  const recoverBtn = event.target.closest(".recover-task");
-  if (recoverBtn) {
-    handleRecoveryResolve({ button: recoverBtn, getState, setState, render });
-    return;
-  }
 
   document.addEventListener("change", event => {
     const metricInput = event.target.closest(".task-metric");
