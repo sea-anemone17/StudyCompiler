@@ -69,7 +69,16 @@ export function migrateTask(task = {}) {
     sessionLogs: Array.isArray(task.sessionLogs) ? task.sessionLogs : [],
     nextDate: task.nextDate || task.scheduledDate || null,
     ...task,
-    schedulerVersion: task.schedulerVersion || "legacy"
+    schedulerVersion: task.schedulerVersion || "legacy",
+    recoveryStatus: task.recoveryStatus || "",
+    recoveryOriginalDate: task.recoveryOriginalDate || null,
+    recoveryCreatedAt: task.recoveryCreatedAt || null,
+    recoveryResolvedAt: task.recoveryResolvedAt || null,
+    skippedDates: Array.isArray(task.skippedDates) ? task.skippedDates : [],
+    partialLogs: Array.isArray(task.partialLogs) ? task.partialLogs : [],
+    startedAt: task.startedAt || null,
+    endedAt: task.endedAt || null,
+    lastTouchedAt: task.lastTouchedAt || null,
   };
 }
 
